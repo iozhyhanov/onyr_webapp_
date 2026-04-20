@@ -1,54 +1,65 @@
 <template>
-  <div class="container">
-    <h2 class="title">Create Claim</h2>
+  <div>
+    <input v-model="first_name" placeholder="First Name" />
+    <input v-model="last_name" placeholder="Last Name" />
+    <input type="date" v-model="date_of_birth" />
+    <input v-model="phone" placeholder="Phone" />
+    <input v-model="email" placeholder="Email" />
+    <input v-model="address_line" placeholder="Address" />
+    <input v-model="city" placeholder="City" />
+    <input v-model="postcode" placeholder="Postcode" />
+    <input v-model="country" placeholder="Country" />
 
-    <input v-model="customerName" placeholder="Customer Name" class="input" />
-    <input v-model="type" placeholder="Type" class="input" />
-
-    <select v-model="status" class="input">
-      <option value="new">New</option>
-      <option value="pending">Pending</option>
-      <option value="approved">Approved</option>
-      <option value="rejected">Rejected</option>
-    </select>
-
-    <select v-model="priority" class="input">
-      <option value="low">Low</option>
-      <option value="medium">Medium</option>
-      <option value="high">High</option>
-    </select>
-
-    <button @click="submitClaim" class="button">
-      Save
+    <button @click="createCustomer">
+      Speichern
     </button>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref } from 'vue'
+<script setup>
+import { ref } from "vue"
 
-const customerName = ref('')
-const type = ref('')
-const status = ref('new')
-const priority = ref('medium')
+const first_name = ref("")
+const last_name = ref("")
+const date_of_birth = ref("")
+const phone = ref("")
+const email = ref("")
+const address_line = ref("")
+const city = ref("")
+const postcode = ref("")
+const country = ref("")
 
-const submitClaim = async () => {
-  const res = await fetch('http://localhost:3000/claims', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      customerName: customerName.value,
-      type: type.value,
-      status: status.value,
-      priority: priority.value
+async function createCustomer() {
+  try {
+    const response = await fetch("http://localhost:3000/api/customers", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        first_name: first_name.value,
+        last_name: last_name.value,
+        date_of_birth: date_of_birth.value,
+        phone: phone.value,
+        email: email.value,
+        address_line: address_line.value,
+        city: city.value,
+        postcode: postcode.value,
+        country: country.value
+      })
     })
-  })
 
-  const data = await res.json()
-  console.log('Saved claim:', data)
+    // 🔥 ВОТ ЭТО ДОБАВЬ ОБЯЗАТЕЛЬНО
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(text)
+    }
 
-  alert('Claim saved!')
+    const result = await response.json()
+    console.log("✅ OK:", result)
+
+  } catch (err) {
+    console.error("❌ FEHLER:", err.message)
+  }
 }
 </script>
