@@ -2,7 +2,7 @@
   <div>
     <input v-model="first_name" placeholder="First Name" />
     <input v-model="last_name" placeholder="Last Name" />
-    <input type="date" v-model="date_of_birth" />
+    <input ref="dateInput" />
     <input v-model="phone" placeholder="Phone" />
     <input v-model="email" placeholder="Email" />
     <input v-model="address_line" placeholder="Address" />
@@ -11,13 +11,16 @@
     <input v-model="country" placeholder="Country" />
 
     <button @click="createCustomer">
-      Speichern
+      Submit
     </button>
   </div>
 </template>
 
 <script setup>
-import { ref } from "vue"
+import { ref, onMounted } from "vue"
+import flatpickr from "flatpickr"
+import "flatpickr/dist/flatpickr.css"
+
 
 const first_name = ref("")
 const last_name = ref("")
@@ -28,6 +31,17 @@ const address_line = ref("")
 const city = ref("")
 const postcode = ref("")
 const country = ref("")
+const dateInput = ref(null)
+
+onMounted(() => {
+  flatpickr(dateInput.value, {
+    dateFormat: "Y-m-d",
+    locale: "en",
+    onChange: (selectedDates, dateStr) => {
+      date_of_birth.value = dateStr
+    }
+  })
+})
 
 async function createCustomer() {
   try {
@@ -49,7 +63,7 @@ async function createCustomer() {
       })
     })
 
-    // 🔥 ВОТ ЭТО ДОБАВЬ ОБЯЗАТЕЛЬНО
+  
     if (!response.ok) {
       const text = await response.text()
       throw new Error(text)
