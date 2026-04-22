@@ -1,28 +1,60 @@
 <template>
-  <div class="container">
-    <h2>Dashboard</h2>
+  <div class="flex min-h-screen bg-gray-100">
 
-    <div class="cards">
-      <div class="card">
-        <p>Total Claims</p>
-        <strong>{{ total }}</strong>
+    <!-- MAIN -->
+    <main class="flex-1 p-8">
+
+      <!-- HEADER -->
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">Claims Dashboard</h1>
+        <input placeholder="Search..." class="border p-2 rounded w-64" />
       </div>
 
-      <div class="card">
-        <p>Open</p>
-        <strong>{{ open }}</strong>
+      <!-- CARDS -->
+      <div class="grid grid-cols-4 gap-6 mb-8">
+        <div class="bg-white p-4 rounded shadow">
+          <p>Total</p>
+          <h2 class="text-xl font-bold">{{ total }}</h2>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow">
+          <p>Open</p>
+          <h2 class="text-xl font-bold">{{ open }}</h2>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow">
+          <p>Pending</p>
+          <h2 class="text-xl font-bold">{{ pending }}</h2>
+        </div>
+
+        <div class="bg-white p-4 rounded shadow">
+          <p>Approved</p>
+          <h2 class="text-xl font-bold">{{ approved }}</h2>
+        </div>
       </div>
 
-      <div class="card">
-        <p>Pending</p>
-        <strong>{{ pending }}</strong>
+      <!-- TABLE -->
+      <div class="bg-white rounded shadow p-4">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="border-b">
+              <th class="p-2">Name</th>
+              <th>Email</th>
+              <th>City</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr v-for="c in claims" :key="c.id" class="border-b">
+              <td class="p-2">{{ c.first_name }} {{ c.last_name }}</td>
+              <td>{{ c.email }}</td>
+              <td>{{ c.city }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      <div class="card">
-        <p>Approved</p>
-        <strong>{{ approved }}</strong>
-      </div>
-    </div>
+    </main>
   </div>
 </template>
 
