@@ -4,17 +4,17 @@ import cors from "cors"
 
 const app = express()
 
-// ✅ middleware (ОБЯЗАТЕЛЬНО)
+// middleware
 app.use(cors())
 app.use(express.json())
 
-// 🔥 ЛОГ ВСЕХ ЗАПРОСОВ (чтобы видеть что реально приходит)
+// 
 app.use((req, res, next) => {
-  console.log("➡️", req.method, req.url)
+  console.log("->", req.method, req.url)
   next()
 })
 
-// 🔌 MariaDB connection
+// MariaDB connection
 const db = mysql.createConnection({
   host: "localhost",
   port: 3306,
@@ -23,7 +23,6 @@ const db = mysql.createConnection({
   database: "onyrdb"
 })
 
-// ✅ проверка подключения к базе
 db.connect((err) => {
   if (err) {
     console.error("❌ DB ERROR:", err)
@@ -32,12 +31,12 @@ db.connect((err) => {
   }
 })
 
-// 🧪 тестовый маршрут
+// test
 app.get("/", (req, res) => {
-  res.send("Backend работает 🚀")
+  res.send("Backend works")
 })
 
-// 📩 CREATE customer
+// CREATE customer
 app.post("/api/customers", (req, res) => {
   console.log("BODY:", req.body)
 
@@ -71,13 +70,13 @@ app.post("/api/customers", (req, res) => {
     }
 
     res.json({
-      message: "Customer erstellt ✅",
+      message: "Customer created ✅",
       customer_id: result.insertId
     })
   })
 })
 
-// 📥 GET all customers (для проверки)
+// GET all customers
 app.get("/api/customers", (req, res) => {
   db.query("SELECT * FROM customers", (err, result) => {
     if (err) {
@@ -89,7 +88,7 @@ app.get("/api/customers", (req, res) => {
   })
 })
 
-// ▶️ start server
-app.listen(3000, () => {
-  console.log("🚀 Server läuft auf http://localhost:3000")
+// ▶ start server
+app.listen(5000, () => {
+  console.log("Server läuft auf http://localhost:5000")
 })

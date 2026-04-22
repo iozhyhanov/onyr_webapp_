@@ -1,10 +1,19 @@
 <template>
-  <div class="w-64 bg-white border-r p-4">
-    <h1 class="text-xl font-bold mb-6">Insurance System</h1>
+  <div class="w-64 bg-gray-900 text-white p-4">
+    <h2 class="text-xl font-bold mb-6">ONYR</h2>
 
-    <nav class="flex flex-col gap-2">
-      <RouterLink to="/" class="hover:bg-gray-100 p-2 rounded">Dashboard</RouterLink>
-      <RouterLink to="/claims" class="hover:bg-gray-100 p-2 rounded">Claims</RouterLink>
+    <nav class="space-y-2">
+      <router-link to="/" class="block p-2 rounded hover:bg-gray-700">
+        Dashboard
+      </router-link>
+
+      <router-link to="/claims" class="block p-2 rounded hover:bg-gray-700">
+        Claims
+      </router-link>
+
+      <router-link to="/create-claim" class="block p-2 rounded hover:bg-gray-700">
+        Create Claim
+      </router-link>
     </nav>
   </div>
 </template>

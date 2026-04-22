@@ -1,7 +1,3 @@
 <template>
-  <CreateClaim />
+  <router-view />
 </template>
-
-<script setup>
-import CreateClaim from './components/CreateClaim.vue'
-</script>
