@@ -42,6 +42,7 @@
               <th>Email</th>
               <th>Policy</th>
               <th>Insurer</th>
+              <th>Date of Loss</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -52,7 +53,7 @@
               <td>{{ c.email }}</td>
               <td>{{ c.policy_number }}</td>
               <td>{{ c.insurer_name }}</td>
-
+              <td>{{ formatDate(c.date_of_loss) }}</td>
               <td>
                 <span
                   :class="{
@@ -82,6 +83,11 @@ const open = ref(0)
 const pending = ref(0)
 const approved = ref(0)
 
+ const formatDate = (date) => {
+  if (!date) return ""
+  return new Date(date).toLocaleDateString("en-GB")
+}
+
 onMounted(async () => {
   try {
     const res = await fetch("http://localhost:5000/api/claims")
@@ -101,6 +107,7 @@ onMounted(async () => {
     if (data.length === 0) {
       console.warn("No claims found")
     }
+
 
     claims.value = data
 
