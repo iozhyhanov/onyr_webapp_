@@ -85,6 +85,13 @@
                     <Info class="w-4 h-4" />
                     Information
                   </div>
+
+                  <div
+                    @click="openEdit(c)"
+                    class="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-sm cursor-pointer"
+                  >
+                    Edit
+                  </div>
                 </div>
               </td>
             </tr>
@@ -122,6 +129,35 @@
             </button>
           </div>
         </div>
+
+        <div v-if="isEditMode" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div class="bg-white p-6 rounded w-[600px]">
+
+            <h2 class="text-xl font-bold mb-4">Edit Claim</h2>
+
+            <input v-model="editClaim.first_name" class="border p-2 w-full mb-2" />
+            <input v-model="editClaim.last_name" class="border p-2 w-full mb-2" />
+            <input v-model="editClaim.email" class="border p-2 w-full mb-2" />
+
+            <select v-model="editClaim.claim_status" class="border p-2 w-full mb-2">
+              <option>open</option>
+              <option>pending</option>
+              <option>approved</option>
+            </select>
+
+            <div class="flex justify-end gap-2">
+              <button @click="isEditMode = false" class="px-4 py-2 bg-gray-200">
+                Cancel
+              </button>
+
+              <button @click="saveClaim" class="px-4 py-2 bg-blue-600 text-white">
+                Save
+              </button>
+            </div>
+
+          </div>
+        </div>
+
     </main>
   </div>
 </template>
@@ -153,6 +189,15 @@ const openModal = (claim) => {
   activeMenu.value = null
 }
 
+const isEditMode = ref(false)
+const editClaim = ref(null)
+
+const openEdit = (claim) => {
+  editClaim.value = { ...claim }
+  isEditMode.value = true
+}
+
+
 onMounted(async () => {
   try {
     const res = await fetch("http://localhost:5000/api/claims")
@@ -182,7 +227,34 @@ onMounted(async () => {
     approved.value = data.filter(c => c.claim_status === "approved").length
 
   } catch (err) {
-    console.error("❌ Error to load claims:", err)
+    console.error("Error to load claims:", err)
   }
 })
+
+const saveClaim = async () => {
+  try {
+    const res = await fetch(`http://localhost:5000/api/claims/${editClaim.value.claim_id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(editClaim.value)
+    })
+
+    if (!res.ok) throw new Error("Update failed")
+
+    const index = claims.value.findIndex(c => c.claim_id === editClaim.value.claim_id)
+
+    if (index !== -1) {
+      claims.value[index] = { ...editClaim.value }
+    }
+
+    isEditMode.value = false
+    editClaim.value = null
+
+  } catch (err) {
+    console.error(err)
+  }
+}
+
 </script>
