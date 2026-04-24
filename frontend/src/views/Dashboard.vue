@@ -65,17 +65,70 @@
                   {{ c.claim_status }}
                 </span>
               </td>
+
+              <td class="relative text-center align-middle">
+                <div
+                  @click.stop="toggleMenu(c.claim_id)"
+                  class="flex items-center justify-center w-full h-full cursor-pointer"
+                >
+                  <MoreVertical class="w-5 h-5 text-gray-500 hover:text-black" />
+                </div>
+
+                <div
+                  v-if="activeMenu === c.claim_id"
+                  class="absolute right-2 top-8 w-40 bg-white border rounded-lg shadow-lg z-10"
+                >
+                  <div
+                    @click="openModal(c)"
+                    class="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-sm cursor-pointer"
+                  >
+                    <Info class="w-4 h-4" />
+                    Information
+                  </div>
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
+        <div v-if="selectedClaim" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div class="bg-white p-6 rounded w-[600px] max-h-[90vh] overflow-y-auto">
 
+            <h2 class="text-xl font-bold mb-4">Full Claim Information</h2>
+
+            <!-- CUSTOMER -->
+            <p><b>First Name:</b> {{ selectedClaim.first_name }}</p>
+            <p><b>Last Name:</b> {{ selectedClaim.last_name }}</p>
+            <p><b>Date of Birth:</b> {{ formatDate(selectedClaim.date_of_birth) }}</p>
+            <p><b>Phone:</b> {{ selectedClaim.phone }}</p>
+            <p><b>Email:</b> {{ selectedClaim.email }}</p>
+
+            <h4 class="font-semibold mt-2">Address</h4>
+            <p>{{ selectedClaim.address_line }}</p>
+            <p>{{ selectedClaim.city }}, {{ selectedClaim.postcode }}</p>
+            <p>{{ selectedClaim.country }}</p>
+
+            <hr class="my-3">
+
+            <!-- CLAIM -->
+            <p><b>Insurer:</b> {{ selectedClaim.insurer_name }}</p>
+            <p><b>Policy Number:</b> {{ selectedClaim.policy_number }}</p>
+            <p><b>Policy Type:</b> {{ selectedClaim.policy_type }}</p>
+            <p><b>Date of Loss:</b> {{ formatDate(selectedClaim.date_of_loss) }}</p>
+            <p><b>Status:</b> {{ selectedClaim.claim_status }}</p>
+
+            <button @click="selectedClaim = null" class="mt-4 bg-gray-200 px-4 py-2 rounded">
+              Close
+            </button>
+          </div>
+        </div>
     </main>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from "vue"
+import { MoreVertical, Info } from "lucide-vue-next"
 
 const claims = ref([])
 const total = ref(0)
@@ -86,6 +139,18 @@ const approved = ref(0)
  const formatDate = (date) => {
   if (!date) return ""
   return new Date(date).toLocaleDateString("en-GB")
+}
+
+const activeMenu = ref(null)
+const selectedClaim = ref(null)
+
+const toggleMenu = (id) => {
+  activeMenu.value = activeMenu.value === id ? null : id
+}
+
+const openModal = (claim) => {
+  selectedClaim.value = claim
+  activeMenu.value = null
 }
 
 onMounted(async () => {
