@@ -6,7 +6,7 @@
 
       <!-- HEADER -->
       <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold">Claims Dashboard</h1>
+        <h1 class="text-2xl font-bold">Dashboard</h1>
         <input placeholder="Search..." class="border p-2 rounded w-64" />
       </div>
 
@@ -40,15 +40,30 @@
             <tr class="border-b">
               <th class="p-2">Name</th>
               <th>Email</th>
-              <th>City</th>
+              <th>Policy</th>
+              <th>Insurer</th>
+              <th>Status</th>
             </tr>
           </thead>
 
           <tbody>
-            <tr v-for="c in claims" :key="c.id" class="border-b">
+            <tr v-for="c in claims" :key="c.claim_id" class="border-b">
               <td class="p-2">{{ c.first_name }} {{ c.last_name }}</td>
               <td>{{ c.email }}</td>
-              <td>{{ c.city }}</td>
+              <td>{{ c.policy_number }}</td>
+              <td>{{ c.insurer_name }}</td>
+
+              <td>
+                <span
+                  :class="{
+                    'text-green-600': c.claim_status === 'approved',
+                    'text-yellow-600': c.claim_status === 'pending',
+                    'text-blue-600': c.claim_status === 'open'
+                  }"
+                >
+                  {{ c.claim_status }}
+                </span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -69,7 +84,7 @@ const approved = ref(0)
 
 onMounted(async () => {
   try {
-    const res = await fetch("http://localhost:5000/api/customers")
+    const res = await fetch("http://localhost:5000/api/claims")
 
     if (!res.ok) {
       const text = await res.text()
@@ -83,12 +98,16 @@ onMounted(async () => {
       throw new Error("API did not return array")
     }
 
+    if (data.length === 0) {
+      console.warn("No claims found")
+    }
+
     claims.value = data
 
     total.value = data.length
-    open.value = data.filter(c => c.status === "open").length
-    pending.value = data.filter(c => c.status === "pending").length
-    approved.value = data.filter(c => c.status === "approved").length
+    open.value = data.filter(c => c.claim_status === "open").length
+    pending.value = data.filter(c => c.claim_status === "pending").length
+    approved.value = data.filter(c => c.claim_status === "approved").length
 
   } catch (err) {
     console.error("❌ Error to load claims:", err)
