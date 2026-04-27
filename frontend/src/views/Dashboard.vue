@@ -67,12 +67,6 @@
               </td>
 
               <td class="relative text-center align-middle space-x-2">
-                <button
-                  @click="downloadDoc(c.claim_id)"
-                  class="text-sm bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
-                >
-                  📄
-                </button>
 
                 <div
                   @click.stop="toggleMenu(c.claim_id)"
@@ -86,18 +80,30 @@
                   class="absolute right-2 top-8 w-40 bg-white border rounded-lg shadow-lg z-10"
                 >
                   <div
-                    @click="openModal(c)"
-                    class="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-sm cursor-pointer"
+                    v-if="activeMenu === c.claim_id"
+                    class="absolute right-2 top-8 w-40 bg-white border rounded-lg shadow-lg z-10"
                   >
-                    <Info class="w-4 h-4" />
-                    Information
-                  </div>
+                    <div
+                      @click="openModal(c)"
+                      class="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-sm cursor-pointer"
+                    >
+                      <Info class="w-4 h-4" />
+                      Information
+                    </div>
 
-                  <div
-                    @click="openEdit(c)"
-                    class="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-sm cursor-pointer"
-                  >
-                    Edit
+                    <div
+                      @click="openEdit(c)"
+                      class="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-sm cursor-pointer"
+                    >
+                      Edit
+                    </div>
+
+                    <div
+                      @click="downloadDoc(c.claim_id)"
+                      class="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 text-sm cursor-pointer"
+                    >
+                      Download Word
+                    </div>
                   </div>
                 </div>
               </td>
