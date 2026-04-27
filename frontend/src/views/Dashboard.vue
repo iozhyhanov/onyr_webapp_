@@ -48,7 +48,7 @@
           </thead>
 
           <tbody>
-            <tr v-for="c in claims" :key="c.claim_id" class="border-b">
+            <tr v-for="c in filteredClaims" :key="c.claim_id" class="border-b">
               <td class="p-2">{{ c.first_name }} {{ c.last_name }}</td>
               <td>{{ c.email }}</td>
               <td>{{ c.policy_number }}</td>
@@ -66,10 +66,17 @@
                 </span>
               </td>
 
-              <td class="relative text-center align-middle">
+              <td class="relative text-center align-middle space-x-2">
+                <button
+                  @click="downloadDoc(c.claim_id)"
+                  class="text-sm bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                >
+                  📄
+                </button>
+
                 <div
                   @click.stop="toggleMenu(c.claim_id)"
-                  class="flex items-center justify-center w-full h-full cursor-pointer"
+                  class="inline-flex items-center justify-center cursor-pointer"
                 >
                   <MoreVertical class="w-5 h-5 text-gray-500 hover:text-black" />
                 </div>
@@ -98,72 +105,79 @@
           </tbody>
         </table>
       </div>
-        <div v-if="selectedClaim" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div class="bg-white p-6 rounded w-[600px] max-h-[90vh] overflow-y-auto">
 
-            <h2 class="text-xl font-bold mb-4">Full Claim Information</h2>
+      <div
+        v-if="selectedClaim"
+        @click="selectedClaim = null"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+      >
+        <div @click.stop class="bg-white p-6 rounded w-[600px] max-h-[90vh] overflow-y-auto">
+          <h2 class="text-xl font-bold mb-4">Full Claim Information</h2>
 
-            <!-- CUSTOMER -->
-            <p><b>First Name:</b> {{ selectedClaim.first_name }}</p>
-            <p><b>Last Name:</b> {{ selectedClaim.last_name }}</p>
-            <p><b>Date of Birth:</b> {{ formatDate(selectedClaim.date_of_birth) }}</p>
-            <p><b>Phone:</b> {{ selectedClaim.phone }}</p>
-            <p><b>Email:</b> {{ selectedClaim.email }}</p>
+          <p><b>First Name:</b> {{ selectedClaim.first_name }}</p>
+          <p><b>Last Name:</b> {{ selectedClaim.last_name }}</p>
+          <p><b>Date of Birth:</b> {{ formatDate(selectedClaim.date_of_birth) }}</p>
+          <p><b>Phone:</b> {{ selectedClaim.phone }}</p>
+          <p><b>Email:</b> {{ selectedClaim.email }}</p>
 
-            <h4 class="font-semibold mt-2">Address</h4>
-            <p>{{ selectedClaim.address_line }}</p>
-            <p>{{ selectedClaim.city }}, {{ selectedClaim.postcode }}</p>
-            <p>{{ selectedClaim.country }}</p>
+          <h4 class="font-semibold mt-2">Address</h4>
+          <p>{{ selectedClaim.address_line }}</p>
+          <p>{{ selectedClaim.city }}, {{ selectedClaim.postcode }}</p>
+          <p>{{ selectedClaim.country }}</p>
 
-            <hr class="my-3">
+          <hr class="my-3">
 
-            <!-- CLAIM -->
-            <p><b>Insurer:</b> {{ selectedClaim.insurer_name }}</p>
-            <p><b>Policy Number:</b> {{ selectedClaim.policy_number }}</p>
-            <p><b>Policy Type:</b> {{ selectedClaim.policy_type }}</p>
-            <p><b>Date of Loss:</b> {{ formatDate(selectedClaim.date_of_loss) }}</p>
-            <p><b>Status:</b> {{ selectedClaim.claim_status }}</p>
+          <p><b>Insurer:</b> {{ selectedClaim.insurer_name }}</p>
+          <p><b>Policy Number:</b> {{ selectedClaim.policy_number }}</p>
+          <p><b>Policy Type:</b> {{ selectedClaim.policy_type }}</p>
+          <p><b>Date of Loss:</b> {{ formatDate(selectedClaim.date_of_loss) }}</p>
+          <p><b>Status:</b> {{ selectedClaim.claim_status }}</p>
 
-            <button @click="selectedClaim = null" class="mt-4 bg-gray-200 px-4 py-2 rounded">
-              Close
+          <button @click="selectedClaim = null" class="mt-4 bg-gray-200 px-4 py-2 rounded">
+            Close
+          </button>
+        </div>
+      </div>
+
+      <div
+        v-if="isEditMode"
+        @click="isEditMode = false"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+      >
+        <div @click.stop class="bg-white p-6 rounded w-[600px]">
+          <h2 class="text-xl font-bold mb-4">Edit Claim</h2>
+
+          <input v-model="editClaim.first_name" class="border p-2 w-full mb-2" />
+          <input v-model="editClaim.last_name" class="border p-2 w-full mb-2" />
+          <input v-model="editClaim.email" class="border p-2 w-full mb-2" />
+
+          <select v-model="editClaim.claim_status" class="border p-2 w-full mb-2">
+            <option>open</option>
+            <option>pending</option>
+            <option>approved</option>
+          </select>
+
+          <div class="flex justify-end gap-2">
+            <button @click="isEditMode = false" class="px-4 py-2 bg-gray-200">
+              Cancel
+            </button>
+
+            <button @click="saveClaim" class="px-4 py-2 bg-blue-600 text-white">
+              Save
+            </button>
+
+            <button @click="downloadDoc">
+              Download Word
             </button>
           </div>
         </div>
-
-        <div v-if="isEditMode" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div class="bg-white p-6 rounded w-[600px]">
-
-            <h2 class="text-xl font-bold mb-4">Edit Claim</h2>
-
-            <input v-model="editClaim.first_name" class="border p-2 w-full mb-2" />
-            <input v-model="editClaim.last_name" class="border p-2 w-full mb-2" />
-            <input v-model="editClaim.email" class="border p-2 w-full mb-2" />
-
-            <select v-model="editClaim.claim_status" class="border p-2 w-full mb-2">
-              <option>open</option>
-              <option>pending</option>
-              <option>approved</option>
-            </select>
-
-            <div class="flex justify-end gap-2">
-              <button @click="isEditMode = false" class="px-4 py-2 bg-gray-200">
-                Cancel
-              </button>
-
-              <button @click="saveClaim" class="px-4 py-2 bg-blue-600 text-white">
-                Save
-              </button>
-            </div>
-
-          </div>
-        </div>
-
+      </div>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue"
+import { ref, onMounted, computed } from "vue"
 import { MoreVertical, Info } from "lucide-vue-next"
 
 const claims = ref([])
@@ -171,14 +185,19 @@ const total = ref(0)
 const open = ref(0)
 const pending = ref(0)
 const approved = ref(0)
-
- const formatDate = (date) => {
-  if (!date) return ""
-  return new Date(date).toLocaleDateString("en-GB")
-}
+const search = ref("")
 
 const activeMenu = ref(null)
 const selectedClaim = ref(null)
+const isEditMode = ref(false)
+const editClaim = ref(null)
+
+
+
+const formatDate = (date) => {
+  if (!date) return ""
+  return new Date(date).toLocaleDateString("en-GB")
+}
 
 const toggleMenu = (id) => {
   activeMenu.value = activeMenu.value === id ? null : id
@@ -189,72 +208,75 @@ const openModal = (claim) => {
   activeMenu.value = null
 }
 
-const isEditMode = ref(false)
-const editClaim = ref(null)
-
 const openEdit = (claim) => {
   editClaim.value = { ...claim }
   isEditMode.value = true
+  activeMenu.value = null
 }
 
+const recalcStats = () => {
+  total.value = claims.value.length
+  open.value = claims.value.filter(c => c.claim_status === "open").length
+  pending.value = claims.value.filter(c => c.claim_status === "pending").length
+  approved.value = claims.value.filter(c => c.claim_status === "approved").length
+}
+
+const filteredClaims = computed(() => {
+  if (!search.value) return claims.value
+  return claims.value.filter(c =>
+    `${c.first_name} ${c.last_name} ${c.email} ${c.policy_number} ${c.insurer_name}`
+      .toLowerCase()
+      .includes(search.value.toLowerCase())
+  )
+})
 
 onMounted(async () => {
-  try {
-    const res = await fetch("http://localhost:5000/api/claims")
+  document.addEventListener("click", () => {
+    activeMenu.value = null
+  })
 
-    if (!res.ok) {
-      const text = await res.text()
-      throw new Error(text)
-    }
+  const res = await fetch("http://localhost:5000/api/claims")
+  const data = await res.json()
 
-    const data = await res.json()
-
-    // Security
-    if (!Array.isArray(data)) {
-      throw new Error("API did not return array")
-    }
-
-    if (data.length === 0) {
-      console.warn("No claims found")
-    }
-
-
-    claims.value = data
-
-    total.value = data.length
-    open.value = data.filter(c => c.claim_status === "open").length
-    pending.value = data.filter(c => c.claim_status === "pending").length
-    approved.value = data.filter(c => c.claim_status === "approved").length
-
-  } catch (err) {
-    console.error("Error to load claims:", err)
-  }
+  claims.value = data
+  recalcStats()
 })
 
 const saveClaim = async () => {
-  try {
-    const res = await fetch(`http://localhost:5000/api/claims/${editClaim.value.claim_id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(editClaim.value)
-    })
+  const res = await fetch(`http://localhost:5000/api/claims/${editClaim.value.claim_id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(editClaim.value)
+  })
 
-    if (!res.ok) throw new Error("Update failed")
+  if (!res.ok) return
 
-    const index = claims.value.findIndex(c => c.claim_id === editClaim.value.claim_id)
+  const index = claims.value.findIndex(c => c.claim_id === editClaim.value.claim_id)
 
-    if (index !== -1) {
-      claims.value[index] = { ...editClaim.value }
-    }
-
-    isEditMode.value = false
-    editClaim.value = null
-
-  } catch (err) {
-    console.error(err)
+  if (index !== -1) {
+    claims.value[index] = { ...editClaim.value }
   }
+
+  recalcStats()
+  isEditMode.value = false
+  editClaim.value = null
 }
 
+const downloadDoc = async (id) => {
+  const res = await fetch(`http://localhost:5000/api/claims/${id}/doc`)
+
+  const blob = await res.blob()
+
+  const url = window.URL.createObjectURL(blob)
+
+  const link = document.createElement("a")
+  link.href = url
+  link.download = `claim_${id}.docx`
+
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
 </script>

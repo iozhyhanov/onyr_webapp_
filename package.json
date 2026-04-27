@@ -10,10 +10,14 @@
   },
   "dependencies": {
     "cors": "^2.8.6",
+    "docx": "^9.6.1",
+    "docxtemplater": "^3.68.6",
     "express": "^5.2.1",
     "flatpickr": "^4.6.13",
+    "lucide-vue-next": "^1.0.0",
     "mysql2": "^3.22.1",
     "pinia": "^3.0.4",
+    "pizzip": "^3.2.0",
     "vue": "^3.5.32",
     "vue-router": "^5.0.4"
   },
