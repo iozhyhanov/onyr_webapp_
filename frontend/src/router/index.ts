@@ -3,6 +3,7 @@ import DefaultLayout from '../layouts/DefaultLayout.vue'
 import Dashboard from '../views/Dashboard.vue'
 import CreateClaim from '../components/CreateClaim.vue'
 import Claims from '../views/Claims.vue'
+import CreateFnol from "../views/CreateFnol.vue"
 
 const routes = [
   {
@@ -23,6 +24,11 @@ const routes = [
         path: 'claims',
         name: 'Claims',
         component: Claims,
+      },
+      {
+        path: "/fnol",
+        name: "fnol",
+        component: CreateFnol
       }
     ]
   }

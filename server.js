@@ -236,6 +236,7 @@ app.put("/api/claims/:id", async (req, res) => {
   }
 })
 
+
 app.get("/api/claims/:id/doc", async (req, res) => {
   try {
     const id = req.params.id
@@ -312,6 +313,43 @@ app.get("/api/claims/:id/doc", async (req, res) => {
   }
 })
 
+app.post("/api/fnol", async (req, res) => {
+  const data = req.body
+  const safe = (v) => v === undefined ? null : v
+
+  try {
+    const [result] = await db.execute(`
+      INSERT INTO fnol (
+        claim_id,
+        loss_time,
+        loss_location,
+        loss_type,
+        short_description,
+        detailed_description,
+        third_party_involved,
+        police_report_number
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      safe(data.claim_id),
+      safe(data.loss_time),
+      safe(data.loss_location),
+      safe(data.loss_type),
+      safe(data.short_description),
+      safe(data.detailed_description),
+      safe(data.third_party_involved),
+      safe(data.police_report_number)
+    ])
+
+    res.json({
+      message: "FNOL created",
+      id: result.insertId
+    })
+
+  } catch (err) {
+    console.error("FNOL ERROR:", err)
+    res.status(500).json({ error: err.message })
+  }
+})
 
 
 // ▶ start server

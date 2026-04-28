@@ -14,6 +14,10 @@
       <router-link to="/create-claim" class="block p-2 rounded hover:bg-gray-700">
         Create Claim
       </router-link>
+
+      <router-link to="/fnol" class="block p-2 rounded hover:bg-gray-700">
+        FNOL
+      </router-link>
     </nav>
   </div>
 </template>

@@ -171,10 +171,6 @@
             <button @click="saveClaim" class="px-4 py-2 bg-blue-600 text-white">
               Save
             </button>
-
-            <button @click="downloadDoc">
-              Download Word
-            </button>
           </div>
         </div>
       </div>
@@ -225,6 +221,10 @@ const recalcStats = () => {
   open.value = claims.value.filter(c => c.claim_status === "open").length
   pending.value = claims.value.filter(c => c.claim_status === "pending").length
   approved.value = claims.value.filter(c => c.claim_status === "approved").length
+}
+
+const openFnol = (id) => {
+  router.push(`/fnol/${id}`)
 }
 
 const filteredClaims = computed(() => {
