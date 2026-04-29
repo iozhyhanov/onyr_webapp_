@@ -44,6 +44,7 @@
               <th>Insurer</th>
               <th>Date of Loss</th>
               <th>Status</th>
+              <th>FNOL</th>
             </tr>
           </thead>
 
@@ -63,6 +64,14 @@
                   }"
                 >
                   {{ c.claim_status }}
+                </span>
+              </td>
+
+              <td>
+                <span
+                  :class="c.fnol_id ? 'text-green-600' : 'text-red-600'"
+                >
+                  {{ c.fnol_id ? 'YES' : 'NO' }}
                 </span>
               </td>
 

@@ -124,27 +124,33 @@ app.get("/api/claims", async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT 
-      claims.claim_id,
-      claims.insurer_name,
-      claims.policy_number,
-      claims.policy_type,
-      claims.date_of_loss,
-      claims.claim_status,
+        claims.claim_id,
+        claims.insurer_name,
+        claims.policy_number,
+        claims.policy_type,
+        claims.date_of_loss,
+        claims.claim_status,
 
-      customers.first_name,
-      customers.last_name,
-      customers.email,
-      customers.phone,
-      customers.date_of_birth,
-      customers.address_line,
-      customers.city,
-      customers.postcode,
-      customers.country
+        customers.first_name,
+        customers.last_name,
+        customers.email,
+        customers.phone,
+        customers.date_of_birth,
+        customers.address_line,
+        customers.city,
+        customers.postcode,
+        customers.country,
 
-    FROM claims
-    JOIN customers 
-      ON claims.customer_id = customers.customer_id
-    ORDER BY claims.created_at DESC
+        fnol.fnol_id
+
+      FROM claims
+      JOIN customers 
+        ON claims.customer_id = customers.customer_id
+
+      LEFT JOIN fnol
+        ON fnol.claim_id = claims.claim_id
+
+      ORDER BY claims.created_at DESC
     `)
 
     res.json(rows)
