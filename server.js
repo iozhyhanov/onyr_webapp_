@@ -246,7 +246,7 @@ app.put("/api/claims/:id", async (req, res) => {
 app.get("/api/claims/:id/doc", async (req, res) => {
   try {
     const id = req.params.id
-
+    const safe = (v) => v || ""
     const [rows] = await db.query(`
       SELECT 
         claims.claim_id,
@@ -262,11 +262,23 @@ app.get("/api/claims/:id/doc", async (req, res) => {
         customers.address_line,
         customers.city,
         customers.postcode,
-        customers.country
+        customers.country,
+
+        fnol.loss_time,
+        fnol.loss_location,
+        fnol.loss_type,
+        fnol.short_description,
+        fnol.detailed_description,
+        fnol.third_party_involved,
+        fnol.police_report_number
 
       FROM claims
       JOIN customers 
         ON claims.customer_id = customers.customer_id
+
+      LEFT JOIN fnol
+        ON fnol.claim_id = claims.claim_id
+
       WHERE claims.claim_id = ?
     `, [id])
 
@@ -277,32 +289,212 @@ app.get("/api/claims/:id/doc", async (req, res) => {
     }
 
     const doc = new Document({
-      sections: [
-        {
+  sections: [
+    {
+      children: [
+
+        // TITLE
+        new Paragraph({
+          alignment: "center",
           children: [
-            new Paragraph(`Claim ID: ${data.claim_id}`),
-            new Paragraph(""),
-            new Paragraph(`Date of Loss: ${formatDate(data.date_of_loss)}`),
+            new TextRun({ text: "FIRST NOTICE OF LOSS", bold: true, size: 32 })
+          ]
+        }),
 
-            new Paragraph(""),
-            new Paragraph(`Name: ${data.first_name} ${data.last_name}`),
-            new Paragraph(`Phone: ${data.phone}`),
-            new Paragraph(`Email: ${data.email}`),
+        new Paragraph(""),
 
-            new Paragraph(""),
-            new Paragraph("Address:"),
-            new Paragraph(data.address_line),
-            new Paragraph(`${data.city}, ${data.postcode}`),
-            new Paragraph(data.country),
+        // BASIC INFO
+        new Paragraph({
+          children: [
+            new TextRun({ text: "File Number: ", bold: true }),
+            new TextRun(String(data.claim_id))
+          ]
+        }),
 
-            new Paragraph(""),
-            new Paragraph(`Insurer: ${data.insurer_name}`),
-            new Paragraph(`Policy Number: ${data.policy_number}`),
-            new Paragraph(`Policy Type: ${data.policy_type}`),
-          ],
-        },
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Date: ", bold: true }),
+            new TextRun({
+              text: new Date().toLocaleDateString("en-GB"),
+              underline: {} // только дата
+            })
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Date of Incident: ", bold: true }),
+            new TextRun(formatDate(data.date_of_loss) || "")
+          ]
+        }),
+
+        new Paragraph({
+          border: { bottom: { value: "single", size: 6 } }
+        }),
+
+        new Paragraph(""),
+
+        // CLAIMANT
+        new Paragraph({
+          children: [
+            new TextRun({ text: "CLAIMANT DETAILS", bold: true, size: 26 })
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Name of Claimant: ", bold: true }),
+            new TextRun(`${data.first_name} ${data.last_name}`)
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Contact number: ", bold: true }),
+            new TextRun(safe(data.phone))
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Email: ", bold: true }),
+            new TextRun(safe(data.email))
+          ]
+        }),
+
+        new Paragraph(""),
+
+        // INSURER
+        new Paragraph({
+          children: [
+            new TextRun({ text: "INSURER DETAILS", bold: true, size: 26 })
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Name of Insurer: ", bold: true }),
+            new TextRun(safe(data.insurer_name))
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "If other (Insurer): ", bold: true }),
+            new TextRun("")
+          ]
+        }),
+
+        new Paragraph(""),
+
+        // POLICY
+        new Paragraph({
+          children: [
+            new TextRun({ text: "POLICY DETAILS", bold: true, size: 26 })
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Type of case: ", bold: true }),
+            new TextRun(safe(data.policy_type))
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Policy Number: ", bold: true }),
+            new TextRun(safe(data.policy_number))
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Claim number: ", bold: true }),
+            new TextRun(String(data.claim_id))
+          ]
+        }),
+
+        new Paragraph(""),
+
+        // REPRESENTATIVE
+        new Paragraph({
+          children: [
+            new TextRun({ text: "REPRESENTATIVE", bold: true, size: 26 })
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Other representative: ", bold: true }),
+            new TextRun(data.third_party_involved ? "Yes" : "No")
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "If Yes, Name: ", bold: true }),
+            new TextRun("")
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "If Yes, Email: ", bold: true }),
+            new TextRun("")
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "If Yes, Contact number: ", bold: true }),
+            new TextRun("")
+          ]
+        }),
+
+        new Paragraph(""),
+
+        // LOSS
+        new Paragraph({
+          children: [
+            new TextRun({ text: "LOSS DETAILS", bold: true, size: 26 })
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Type of loss: ", bold: true }),
+            new TextRun(safe(data.loss_type))
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Details of loss: ", bold: true }),
+            new TextRun(safe(data.detailed_description))
+          ]
+        }),
+
+        new Paragraph(""),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Inspection Date: ", bold: true }),
+            new TextRun("")
+          ]
+        }),
+
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Other information: ", bold: true }),
+            new TextRun(safe(data.short_description))
+          ]
+        }),
+
       ],
-    })
+    },
+  ],
+})
 
     const buffer = await Packer.toBuffer(doc)
 
