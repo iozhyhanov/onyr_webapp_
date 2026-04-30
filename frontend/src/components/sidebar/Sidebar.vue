@@ -18,6 +18,10 @@
       <router-link to="/fnol" class="block p-2 rounded hover:bg-gray-700">
         FNOL
       </router-link>
+
+      <router-link to="/inspection/new" class="block p-2 rounded hover:bg-gray-700">
+        Inspection Form
+      </router-link>
     </nav>
   </div>
 </template>

@@ -29,6 +29,10 @@ const routes = [
         path: "/fnol",
         name: "fnol",
         component: CreateFnol
+      },
+      {
+        path: "/inspection/new",
+        component: () => import("../views/InspectionForm.vue")
       }
     ]
   }

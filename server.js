@@ -549,6 +549,29 @@ app.post("/api/fnol", async (req, res) => {
   }
 })
 
+app.post("/api/inspections", async (req, res) => {
+  try {
+    const data = req.body
+
+    const [result] = await db.query(`
+      INSERT INTO inspections
+      (claim_id, inspector_name, inspection_date, object_type, damage_description)
+      VALUES (?, ?, ?, ?, ?)
+    `, [
+      data.claim_id,
+      data.inspector_name,
+      data.inspection_date,
+      "vehicle",
+      data.damage?.description || ""
+    ])
+
+    res.json({ ok: true, id: result.insertId })
+
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
 
 // ▶ start server
 app.listen(5000, () => {

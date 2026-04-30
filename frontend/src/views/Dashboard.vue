@@ -221,8 +221,6 @@ const selectedClaim = ref(null)
 const isEditMode = ref(false)
 const editClaim = ref(null)
 
-
-
 const formatDate = (date) => {
   if (!date) return ""
   return new Date(date).toLocaleDateString("en-GB")
