@@ -13,7 +13,14 @@
       </option>
     </select>
 
-    <input v-model="form.loss_time" type="time" class="border p-2 mb-2 w-full" />
+    <label class="block mb-1 text-sm font-semibold">
+      Time of Incident
+    </label>
+    <input 
+      v-model="form.loss_time" 
+      type="time" 
+      class="border p-2 mb-3 w-full" 
+    />
 
     <input v-model="form.loss_location" placeholder="Location" class="border p-2 mb-2 w-full" />
 
@@ -23,7 +30,13 @@
 
     <textarea v-model="form.detailed_description" placeholder="Details" class="border p-2 mb-2 w-full"></textarea>
 
-    <select v-model="form.third_party_involved" class="border p-2 mb-2 w-full">
+    <label class="block mb-1 text-sm font-semibold">
+      Third Party Involved?
+    </label>
+    <select 
+      v-model="form.third_party_involved" 
+      class="border p-2 mb-3 w-full"
+    >
       <option :value="0">No</option>
       <option :value="1">Yes</option>
     </select>
