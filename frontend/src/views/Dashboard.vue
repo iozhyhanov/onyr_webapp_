@@ -23,16 +23,15 @@
         </div>
 
         <div class="bg-white p-4 rounded shadow">
-          <p>Pending</p>
-          <h2 class="text-xl font-bold">{{ pending }}</h2>
+          <p>Investigation</p>
+          <h2 class="text-xl font-bold">{{ investigation }}</h2>
         </div>
 
         <div class="bg-white p-4 rounded shadow">
-          <p>Approved</p>
-          <h2 class="text-xl font-bold">{{ approved }}</h2>
+          <p>Closed</p>
+          <h2 class="text-xl font-bold">{{ closed }}</h2>
         </div>
       </div>
-
       <!-- TABLE -->
       <div class="bg-white rounded shadow p-4">
         <table class="w-full text-left">
@@ -58,9 +57,9 @@
               <td>
                 <span
                   :class="{
-                    'text-green-600': c.claim_status === 'approved',
-                    'text-yellow-600': c.claim_status === 'pending',
-                    'text-blue-600': c.claim_status === 'open'
+                    'text-blue-600': c.claim_status === 'open',
+                    'text-yellow-600': c.claim_status === 'investigation',
+                    'text-green-600': c.claim_status === 'closed'
                   }"
                 >
                   {{ c.claim_status }}
@@ -168,8 +167,8 @@
 
           <select v-model="editClaim.claim_status" class="border p-2 w-full mb-2">
             <option>open</option>
-            <option>pending</option>
-            <option>approved</option>
+            <option>investigation</option>
+            <option>closed</option>
           </select>
 
           <div class="flex justify-end gap-2">
@@ -194,8 +193,8 @@ import { MoreVertical, Info } from "lucide-vue-next"
 const claims = ref([])
 const total = ref(0)
 const open = ref(0)
-const pending = ref(0)
-const approved = ref(0)
+const investigation = ref(0)
+const closed = ref(0)
 const search = ref("")
 
 const activeMenu = ref(null)
@@ -228,8 +227,8 @@ const openEdit = (claim) => {
 const recalcStats = () => {
   total.value = claims.value.length
   open.value = claims.value.filter(c => c.claim_status === "open").length
-  pending.value = claims.value.filter(c => c.claim_status === "pending").length
-  approved.value = claims.value.filter(c => c.claim_status === "approved").length
+  investigation.value = claims.value.filter(c => c.claim_status === "investigation").length
+  closed.value = claims.value.filter(c => c.claim_status === "closed").length
 }
 
 const openFnol = (id) => {
