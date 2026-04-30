@@ -2,7 +2,16 @@
   <div class="p-8">
     <h1 class="text-2xl font-bold mb-4">Create FNOL</h1>
 
-    <input v-model="form.claim_id" placeholder="Claim ID" class="border p-2 mb-2 w-full" />
+    <select v-model="form.claim_id" class="border p-2 mb-2 w-full">
+      <option disabled value="">Select Claim</option>
+      <option 
+        v-for="c in claims" 
+        :key="c.claim_id" 
+        :value="c.claim_id"
+      >
+        {{ c.first_name }} {{ c.last_name }} (ID: {{ c.claim_id }})
+      </option>
+    </select>
 
     <input v-model="form.loss_time" type="time" class="border p-2 mb-2 w-full" />
 
@@ -28,7 +37,9 @@
 </template>
 
 <script setup>
-import { ref } from "vue"
+import { ref, onMounted } from "vue"
+
+const claims = ref([])
 
 const form = ref({
   claim_id: "",
@@ -39,6 +50,13 @@ const form = ref({
   detailed_description: "",
   third_party_involved: 0,
   police_report_number: ""
+})
+
+onMounted(async () => {
+  const res = await fetch("http://localhost:5000/api/claims")
+  const data = await res.json()
+
+  claims.value = data
 })
 
 const createFnol = async () => {
