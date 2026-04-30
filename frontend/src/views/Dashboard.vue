@@ -164,7 +164,7 @@
           <input v-model="editClaim.first_name" class="border p-2 w-full mb-2" />
           <input v-model="editClaim.last_name" class="border p-2 w-full mb-2" />
 
-          <input v-model="editClaim.date_of_birth" type="date" class="border p-2 w-full mb-2" />
+          <input ref="dateBirthEditRef" class="border p-2 w-full mb-2" placeholder="Date of Birth" />
 
           <input v-model="editClaim.phone" class="border p-2 w-full mb-2" />
           <input v-model="editClaim.email" class="border p-2 w-full mb-2" />
@@ -178,7 +178,7 @@
           <input v-model="editClaim.policy_number" class="border p-2 w-full mb-2" />
           <input v-model="editClaim.policy_type" class="border p-2 w-full mb-2" />
 
-          <input v-model="editClaim.date_of_loss" type="date" class="border p-2 w-full mb-2" />
+          <input ref="dateLossEditRef" class="border p-2 w-full mb-2" placeholder="Date of Loss" />
 
           <select v-model="editClaim.claim_status" class="border p-2 w-full mb-2">
             <option>open</option>
@@ -204,6 +204,10 @@
 <script setup>
 import { ref, onMounted, computed } from "vue"
 import { MoreVertical, Info } from "lucide-vue-next"
+import { nextTick } from "vue"
+
+const dateBirthEditRef = ref(null)
+const dateLossEditRef = ref(null)
 
 const claims = ref([])
 const total = ref(0)
@@ -233,10 +237,28 @@ const openModal = (claim) => {
   activeMenu.value = null
 }
 
-const openEdit = (claim) => {
+const openEdit = async (claim) => {
   editClaim.value = { ...claim }
   isEditMode.value = true
   activeMenu.value = null
+
+  await nextTick() // ждём пока modal отрисуется
+
+  flatpickr(dateBirthEditRef.value, {
+    dateFormat: "Y-m-d",
+    defaultDate: editClaim.value.date_of_birth,
+    onChange: (_, dateStr) => {
+      editClaim.value.date_of_birth = dateStr
+    }
+  })
+
+  flatpickr(dateLossEditRef.value, {
+    dateFormat: "Y-m-d",
+    defaultDate: editClaim.value.date_of_loss,
+    onChange: (_, dateStr) => {
+      editClaim.value.date_of_loss = dateStr
+    }
+  })
 }
 
 const recalcStats = () => {
