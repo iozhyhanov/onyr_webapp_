@@ -163,7 +163,22 @@
 
           <input v-model="editClaim.first_name" class="border p-2 w-full mb-2" />
           <input v-model="editClaim.last_name" class="border p-2 w-full mb-2" />
+
+          <input v-model="editClaim.date_of_birth" type="date" class="border p-2 w-full mb-2" />
+
+          <input v-model="editClaim.phone" class="border p-2 w-full mb-2" />
           <input v-model="editClaim.email" class="border p-2 w-full mb-2" />
+
+          <input v-model="editClaim.address_line" class="border p-2 w-full mb-2" />
+          <input v-model="editClaim.city" class="border p-2 w-full mb-2" />
+          <input v-model="editClaim.postcode" class="border p-2 w-full mb-2" />
+          <input v-model="editClaim.country" class="border p-2 w-full mb-2" />
+
+          <input v-model="editClaim.insurer_name" class="border p-2 w-full mb-2" />
+          <input v-model="editClaim.policy_number" class="border p-2 w-full mb-2" />
+          <input v-model="editClaim.policy_type" class="border p-2 w-full mb-2" />
+
+          <input v-model="editClaim.date_of_loss" type="date" class="border p-2 w-full mb-2" />
 
           <select v-model="editClaim.claim_status" class="border p-2 w-full mb-2">
             <option>open</option>
