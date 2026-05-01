@@ -20,13 +20,19 @@
           <select v-model="selectedClaimId" class="border p-2 w-full">
             <option disabled value="">Select claim</option>
 
-            <option
-              v-for="c in claims"
-              :key="c.claim_id"
-              :value="c.claim_id"
-            >
+            <option v-for="c in claims" :key="c.claim_id" :value="c.claim_id">
               {{ c.claim_id }} - {{ c.first_name }} {{ c.last_name }}
             </option>
+          </select>
+        </div>
+
+        <div class="bg-white p-6 rounded shadow">
+          <h2 class="font-bold mb-4">Inspection Type</h2>
+
+          <select v-model="inspection.object_type" class="border p-2 w-full">
+            <option disabled value="">Select type</option>
+            <option value="vehicle">Vehicle</option>
+            <option value="property">Property</option>
           </select>
         </div>
 
@@ -38,7 +44,7 @@
           <input v-model="inspection.location" placeholder="Location" class="border p-2 w-full mb-2" />
         </div>
 
-        <div class="bg-white p-6 rounded shadow">
+        <div v-if="inspection.object_type === 'vehicle'" class="bg-white p-6 rounded shadow">
           <h2 class="font-bold mb-4">Vehicle Details</h2>
 
           <div class="grid grid-cols-2 gap-4">
@@ -49,8 +55,21 @@
           </div>
         </div>
 
+        <div v-if="inspection.object_type === 'property'" class="bg-white p-6 rounded shadow">
+          <h2 class="font-bold mb-4">Property Details</h2>
+
+          <input v-model="inspection.property.address" placeholder="Address" class="border p-2 w-full mb-2" />
+          <input v-model="inspection.property.type" placeholder="Property Type" class="border p-2 w-full mb-2" />
+
+          <textarea
+            v-model="inspection.property.damage"
+            class="border p-2 w-full h-32"
+            placeholder="Describe property damage..."
+          />
+        </div>
+
         <button
-          :disabled="!selectedClaimId"
+          :disabled="!selectedClaimId || !inspection.object_type"
           @click="step++"
           class="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
         >
@@ -59,42 +78,65 @@
 
       </div>
 
-      <div v-if="step === 2" class="space-y-6">
+        <div v-if="step === 2" class="space-y-6">
 
-        <div class="bg-white p-6 rounded shadow">
-          <h2 class="font-bold mb-4">Damage Checklist</h2>
+          <!-- VEHICLE -->
+          <div v-if="inspection.object_type === 'vehicle'">
 
-          <div class="grid grid-cols-2 gap-4">
-            <label class="flex items-center gap-2">
-              <input type="checkbox" v-model="inspection.damage.scratches" />
-              Scratches
-            </label>
+            <div class="bg-white p-6 rounded shadow">
+              <h2 class="font-bold mb-4">Vehicle Damage</h2>
 
-            <label class="flex items-center gap-2">
-              <input type="checkbox" v-model="inspection.damage.dents" />
-              Dents
-            </label>
+              <label><input type="checkbox" v-model="inspection.damage.scratches" /> Scratches</label>
+              <label><input type="checkbox" v-model="inspection.damage.dents" /> Dents</label>
+              <label><input type="checkbox" v-model="inspection.damage.broken_lights" /> Broken Lights</label>
+              <label><input type="checkbox" v-model="inspection.damage.tire_damage" /> Tire Damage</label>
+            </div>
 
-            <label class="flex items-center gap-2">
-              <input type="checkbox" v-model="inspection.damage.broken_lights" />
-              Broken Lights
-            </label>
-
-            <label class="flex items-center gap-2">
-              <input type="checkbox" v-model="inspection.damage.tire_damage" />
-              Tire Damage
-            </label>
           </div>
-        </div>
 
-        <div class="bg-white p-6 rounded shadow">
-          <h2 class="font-bold mb-4">Damage Description</h2>
+          <!-- PROPERTY -->
+          <div v-if="inspection.object_type === 'property'">
 
-          <textarea
-            v-model="inspection.damage.description"
-            class="border p-2 w-full h-32"
-            placeholder="Describe damage..."
-          />
+            <div class="bg-white p-6 rounded shadow">
+              <h2 class="font-bold mb-4">Property Damage</h2>
+
+              <label><input type="checkbox" v-model="inspection.property_damage.water" /> Water Damage</label>
+              <label><input type="checkbox" v-model="inspection.property_damage.fire" /> Fire Damage</label>
+              <label><input type="checkbox" v-model="inspection.property_damage.cracks" /> Wall Cracks</label>
+              <label><input type="checkbox" v-model="inspection.property_damage.roof" /> Roof Damage</label>
+            </div>
+
+          </div>
+
+          <!-- OTHER -->
+          <div v-if="inspection.object_type === 'other'">
+
+            <div class="bg-white p-6 rounded shadow">
+              <h2 class="font-bold mb-4">Other Damage</h2>
+
+              <textarea
+                v-model="inspection.damage.description"
+                class="border p-2 w-full h-32"
+                placeholder="Describe damage..."
+              ></textarea>
+            </div>
+
+
+          <!-- ОБЩЕЕ описание -->
+          <div class="bg-white p-6 rounded shadow">
+            <h2 class="font-bold mb-4">Damage Description</h2>
+
+            <textarea
+              v-model="inspection.damage.description"
+              class="border p-2 w-full h-32"
+            ></textarea>
+          </div>
+
+          <div class="flex gap-2">
+            <button @click="step--" class="bg-gray-300 px-4 py-2 rounded">Back</button>
+            <button @click="step++" class="bg-blue-600 text-white px-4 py-2 rounded">Next</button>
+          </div>
+
         </div>
 
         <div class="flex gap-2">
@@ -109,6 +151,7 @@
 
       </div>
 
+      <!-- STEP 3 -->
       <div v-if="step === 3" class="space-y-6">
 
         <div class="bg-white p-6 rounded shadow">
@@ -145,30 +188,46 @@ const claims = ref([])
 const selectedClaimId = ref("")
 
 const inspection = ref({
+  object_type: "vehicle",
+
   inspector_name: "",
   inspection_date: "",
   location: "",
+
   vehicle: {
     make: "",
     model: "",
     vin: "",
     registration: ""
   },
-  damage: {
+
+  property: {
+    address: "",
+    type: ""
+  },
+
+  vehicle_damage: {
     scratches: false,
     dents: false,
     broken_lights: false,
-    tire_damage: false,
-    description: ""
+    tire_damage: false
   },
+
+  property_damage: {
+    water: false,
+    fire: false,
+    cracks: false,
+    roof: false
+  },
+
+  description: "",
   notes: ""
 })
 
 onMounted(async () => {
   try {
     const res = await fetch("http://localhost:5000/api/claims")
-    const data = await res.json()
-    claims.value = data
+    claims.value = await res.json()
   } catch (err) {
     console.error(err)
   }

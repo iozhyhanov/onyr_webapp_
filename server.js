@@ -561,7 +561,7 @@ app.post("/api/inspections", async (req, res) => {
       data.claim_id,
       data.inspector_name,
       data.inspection_date,
-      "vehicle",
+      data.object_type,
       data.damage?.description || ""
     ])
 

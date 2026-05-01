@@ -240,7 +240,7 @@ const openEdit = async (claim) => {
   isEditMode.value = true
   activeMenu.value = null
 
-  await nextTick() // ждём пока modal отрисуется
+  await nextTick() 
 
   flatpickr(dateBirthEditRef.value, {
     dateFormat: "Y-m-d",
