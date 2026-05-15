@@ -550,26 +550,239 @@ app.post("/api/fnol", async (req, res) => {
 })
 
 app.post("/api/inspections", async (req, res) => {
+  const conn = await db.getConnection()
   try {
-    const data = req.body
+    await conn.beginTransaction()
+    const b = req.body
+    const s = (v) => (v === undefined || v === "") ? null : v
 
-    const [result] = await db.query(`
-      INSERT INTO inspections
-      (claim_id, inspector_name, inspection_date, object_type, damage_description)
-      VALUES (?, ?, ?, ?, ?)
+    // ── Section 0: inspections (main row) ──────────────────
+    const [main] = await conn.execute(`
+      INSERT INTO inspections (
+        claim_id, status,
+        file_number, date, date_of_incident, policy_number, claim_number, type_of_case,
+        claimant_name, claimant_phone, claimant_email,
+        insurer_name, insurer_other,
+        other_rep, other_rep_email, other_rep_phone,
+        type_of_loss, details_of_loss, inspection_date, other_info
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `, [
-      data.claim_id,
-      data.inspector_name,
-      data.inspection_date,
-      data.object_type,
-      data.damage?.description || ""
+      s(b.claim_id), s(b.status),
+      s(b.header?.file_number), s(b.header?.date), s(b.header?.date_of_incident),
+      s(b.header?.policy_number), s(b.header?.claim_number), s(b.header?.type_of_case),
+      s(b.header?.claimant_name), s(b.header?.claimant_phone), s(b.header?.claimant_email),
+      s(b.header?.insurer_name), s(b.header?.insurer_other),
+      s(b.header?.other_rep), s(b.header?.other_rep_email), s(b.header?.other_rep_phone),
+      s(b.header?.type_of_loss), s(b.header?.details_of_loss),
+      s(b.header?.inspection_date), s(b.header?.other_info)
+    ])
+    const id = main.insertId
+
+    // ── Section 1: inspection_site ─────────────────────────
+    const sv = b.site || {}
+    await conn.execute(`
+      INSERT INTO inspection_site (
+        inspection_id, incident_ref, field_adjuster, internal_adjuster,
+        visit_date, visit_time, persons_present, contact_numbers, email,
+        gdpr_obtained, gdpr_reason, adjuster_notes
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    `, [
+      id, s(sv.incident_ref), s(sv.field_adjuster), s(sv.internal_adjuster),
+      s(sv.visit_date), s(sv.visit_time), s(sv.persons_present),
+      s(sv.contact_numbers), s(sv.email),
+      s(sv.gdpr_obtained), s(sv.gdpr_reason), s(sv.adjuster_notes)
     ])
 
-    res.json({ ok: true, id: result.insertId })
+    // ── Section 2: inspection_insured ──────────────────────
+    const ins = b.insured || {}
+    await conn.execute(`
+      INSERT INTO inspection_insured (
+        inspection_id, policyholder_name_dob, occupation, address,
+        period_of_residence, previous_addresses, period_on_cover, previous_insurers,
+        previous_claim_1, previous_claim_2, previous_claim_3,
+        convictions, other_occupiers, adjuster_notes
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `, [
+      id, s(ins.policyholder_name_dob), s(ins.occupation), s(ins.address),
+      s(ins.period_of_residence), s(ins.previous_addresses), s(ins.period_on_cover),
+      s(ins.previous_insurers),
+      s(ins.previous_claims?.[0]), s(ins.previous_claims?.[1]), s(ins.previous_claims?.[2]),
+      s(ins.convictions), s(ins.other_occupiers), s(ins.adjuster_notes)
+    ])
+
+    // ── Section 3: inspection_premises ────────────────────
+    const pr = b.premises || {}
+    await conn.execute(`
+      INSERT INTO inspection_premises (
+        inspection_id, property_type, storeys, bedrooms, roof,
+        basement_attic, date_of_construction, listing_status,
+        maintenance_standard, ownership_status
+      ) VALUES (?,?,?,?,?,?,?,?,?,?)
+    `, [
+      id, s(pr.property_type), s(pr.storeys) || null, s(pr.bedrooms) || null,
+      s(pr.roof), s(pr.basement_attic), s(pr.date_of_construction),
+      s(pr.listing_status), s(pr.maintenance_standard), s(pr.ownership_status)
+    ])
+
+    // ── Section 4: inspection_protections ─────────────────
+    const pt = b.protections || {}
+    const w = pt.windows || {}
+    await conn.execute(`
+      INSERT INTO inspection_protections (
+        inspection_id,
+        front_door_lock_make, front_door_lock_type,
+        rear_door_lock_make,  rear_door_lock_type,
+        side_door_lock_make,  side_door_lock_type,
+        french_door_lock_make,french_door_lock_type,
+        patio_lock_make,      patio_lock_type,
+        win_front, win_front_locks, win_side, win_side_locks, win_rear, win_rear_locks,
+        alarm_details, recommendations, risk_issues,
+        warranties_complied, warranties_notes, adjuster_notes
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `, [
+      id,
+      s(pt.front_door?.lock_make),      s(pt.front_door?.lock_type),
+      s(pt.rear_door?.lock_make),        s(pt.rear_door?.lock_type),
+      s(pt.side_door?.lock_make),        s(pt.side_door?.lock_type),
+      s(pt.french_door?.lock_make),      s(pt.french_door?.lock_type),
+      s(pt.patio_conservatory?.lock_make), s(pt.patio_conservatory?.lock_type),
+      s(w.front), s(w.front_locks), s(w.side), s(w.side_locks), s(w.rear), s(w.rear_locks),
+      s(pt.alarm_details), s(pt.recommendations), s(pt.risk_issues),
+      s(pt.warranties_complied), s(pt.warranties_notes), s(pt.adjuster_notes)
+    ])
+
+    // ── Section 5: inspection_discovery ───────────────────
+    const dv = b.discovery || {}
+    await conn.execute(`
+      INSERT INTO inspection_discovery (
+        inspection_id, discovered_datetime, discovered_by, last_occupied,
+        operating_peril, circumstances, causation_issues, evidence, adjuster_notes
+      ) VALUES (?,?,?,?,?,?,?,?,?)
+    `, [
+      id, s(dv.discovered_datetime), s(dv.discovered_by), s(dv.last_occupied),
+      s(dv.operating_peril), s(dv.circumstances), s(dv.causation_issues),
+      s(dv.evidence), s(dv.adjuster_notes)
+    ])
+
+    // ── Section 6: inspection_theft ───────────────────────
+    const th = b.theft || {}
+    await conn.execute(`
+      INSERT INTO inspection_theft (
+        inspection_id, occupants_prior, last_to_leave, fully_secured,
+        method_of_entry, method_of_exit, force_evidence, crn,
+        police_station, police_report_required, adjuster_notes
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    `, [
+      id, s(th.occupants_prior), s(th.last_to_leave), s(th.fully_secured),
+      s(th.method_of_entry), s(th.method_of_exit), s(th.force_evidence),
+      s(th.crn), s(th.police_station), s(th.police_report_required), s(th.adjuster_notes)
+    ])
+
+    // ── Section 7: inspection_buildings ───────────────────
+    const bl = b.buildings || {}
+    await conn.execute(`
+      INSERT INTO inspection_buildings (
+        inspection_id, damaged_areas, room_damage, damage_consistent,
+        betterment, maintenance, actions_quantum, adjuster_notes
+      ) VALUES (?,?,?,?,?,?,?,?)
+    `, [
+      id,
+      JSON.stringify(bl.damaged_areas || []),
+      JSON.stringify(bl.room_damage || []),
+      s(bl.damage_consistent), s(bl.betterment), s(bl.maintenance),
+      s(bl.actions_quantum), s(bl.adjuster_notes)
+    ])
+
+    // ── Section 8: inspection_contents ────────────────────
+    const ct = b.contents || {}
+    const totalAmount = (ct.items || [])
+      .reduce((sum, row) => sum + (parseFloat(row.amount) || 0), 0)
+    await conn.execute(`
+      INSERT INTO inspection_contents (
+        inspection_id, items, total_amount,
+        proof_of_ownership, specialist_reports, adjuster_notes
+      ) VALUES (?,?,?,?,?,?)
+    `, [
+      id, JSON.stringify(ct.items || []), totalAmount.toFixed(2),
+      s(ct.proof_of_ownership), s(ct.specialist_reports), s(ct.adjuster_notes)
+    ])
+
+    // ── Section 9: inspection_accommodation ───────────────
+    const ac = b.accommodation || {}
+    await conn.execute(`
+      INSERT INTO inspection_accommodation (
+        inspection_id, uninhabitable, uninhabitable_details, who_lives_there,
+        alternatives_discussed, disruption_period, cessation_of_rent,
+        further_actions, adjuster_notes
+      ) VALUES (?,?,?,?,?,?,?,?,?)
+    `, [
+      id, s(ac.uninhabitable), s(ac.uninhabitable_details), s(ac.who_lives_there),
+      s(ac.alternatives_discussed), s(ac.disruption_period), s(ac.cessation_of_rent),
+      s(ac.further_actions), s(ac.adjuster_notes)
+    ])
+
+    // ── Section 10: inspection_sum_insured ────────────────
+    const si = b.sum_insured || {}
+    await conn.execute(`
+      INSERT INTO inspection_sum_insured (
+        inspection_id, buildings_sum, sketch_plan, buildings_var, additional_var,
+        buildings_adequacy, buildings_notes, contents_sum, room_breakdown,
+        basis_of_valuation, contents_adequacy, contents_notes
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    `, [
+      id,
+      s(si.buildings_sum) || null, s(si.sketch_plan),
+      s(si.buildings_var) || null, s(si.additional_var) || null,
+      s(si.buildings_adequacy) || null, s(si.buildings_notes),
+      s(si.contents_sum) || null, JSON.stringify(si.room_breakdown || {}),
+      s(si.basis_of_valuation), s(si.contents_adequacy) || null, s(si.contents_notes)
+    ])
+
+    // ── Section 11: inspection_recovery ───────────────────
+    const rc = b.recovery || {}
+    const ind = rc.indicators || {}
+    const rv = rc.reserve || {}
+    const ap = rc.action_plan || {}
+    await conn.execute(`
+      INSERT INTO inspection_recovery (
+        inspection_id, responsible_party, adjuster_notes,
+        ind_recent_inception, ind_adverse_loss_history, ind_unavailable_interview,
+        ind_identity_in_doubt, ind_method_not_supportable, ind_dilapidated,
+        ind_inadequate_documentation, ind_detailed_claims_knowledge, ind_claim_withdrawn,
+        ind_inadequate_cooperation, ind_pressure_cash_settlement, ind_criminal_convictions,
+        ind_financial_difficulties, ind_unreasonable_threats, ind_first_policy,
+        ind_police_report_delayed, ind_reluctance_to_repair,
+        other_concerns, claim_status, enquiries_required, claim_summary,
+        reserve_buildings, reserve_trade_contents, reserve_stock,
+        reserve_machinery, reserve_bi, reserve_other,
+        action_issues, action_adjuster, action_policyholder, action_notes
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `, [
+      id, s(rc.responsible_party), s(rc.adjuster_notes),
+      ind.recent_inception ? 1:0,        ind.adverse_loss_history ? 1:0,
+      ind.unavailable_interview ? 1:0,   ind.identity_in_doubt ? 1:0,
+      ind.method_not_supportable ? 1:0,  ind.dilapidated ? 1:0,
+      ind.inadequate_documentation ? 1:0, ind.detailed_claims_knowledge ? 1:0,
+      ind.claim_withdrawn ? 1:0,         ind.inadequate_cooperation ? 1:0,
+      ind.pressure_cash_settlement ? 1:0, ind.criminal_convictions ? 1:0,
+      ind.financial_difficulties ? 1:0,  ind.unreasonable_threats ? 1:0,
+      ind.first_policy ? 1:0,            ind.police_report_delayed ? 1:0,
+      ind.reluctance_to_repair ? 1:0,
+      s(rc.other_concerns), s(rc.claim_status), s(rc.enquiries_required), s(rc.claim_summary),
+      s(rv.buildings) || null, s(rv.trade_contents) || null, s(rv.stock) || null,
+      s(rv.machinery) || null, s(rv.bi) || null, s(rv.other) || null,
+      s(ap.issues), s(ap.adjuster_actions), s(ap.policyholder_actions), s(ap.adjuster_notes)
+    ])
+
+    await conn.commit()
+    res.json({ ok: true, inspection_id: id })
 
   } catch (err) {
-    console.error(err)
+    await conn.rollback()
+    console.error("INSPECTION ERROR:", err)
     res.status(500).json({ error: err.message })
+  } finally {
+    conn.release()
   }
 })
 
