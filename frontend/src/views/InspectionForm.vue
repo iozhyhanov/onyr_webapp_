@@ -85,11 +85,11 @@
           </div>
           <div class="field-group">
             <label>Date</label>
-            <input v-model="form.header.date" type="date" class="field-input"/>
+            <input v-model="form.header.date" v-datepicker class="field-input"/>
           </div>
           <div class="field-group">
             <label>Date of Incident</label>
-            <input v-model="form.header.date_of_incident" type="date" class="field-input"/>
+            <input v-model="form.header.date_of_incident" v-datepicker class="field-input"/>
           </div>
           <div class="field-group">
             <label>Policy Number</label>
@@ -157,7 +157,7 @@
           </div>
           <div class="field-group">
             <label>Inspection Date</label>
-            <input v-model="form.header.inspection_date" type="date" class="field-input"/>
+            <input v-model="form.header.inspection_date" v-datepicker class="field-input"/>
           </div>
           <div class="field-group col-span-2">
             <label>Other Information</label>
@@ -183,7 +183,7 @@
           </div>
           <div class="field-group">
             <label>Visit Date</label>
-            <input v-model="form.site.visit_date" type="date" class="field-input"/>
+            <input v-model="form.site.visit_date" v-datepicker class="field-input"/>
           </div>
           <div class="field-group">
             <label>Visit Time</label>
@@ -390,7 +390,7 @@
         <div v-if="currentSection === 5" class="fields-grid">
           <div class="field-group">
             <label>Date &amp; Time Damage Discovered</label>
-            <input v-model="form.discovery.discovered_datetime" type="datetime-local" class="field-input"/>
+            <input v-model="form.discovery.discovered_datetime" v-datetimepicker class="field-input"/>
           </div>
           <div class="field-group">
             <label>Who Discovered the Damage</label>
@@ -1071,23 +1071,6 @@ onMounted(async () => {
   } catch (err) {
     console.error('Failed to load claims:', err)
   }
-
-  document.querySelectorAll('input[type="date"]').forEach(el => {
-    flatpickr(el, {
-      dateFormat: "Y-m-d",
-      locale: english,
-      allowInput: true,
-    })
-  })
-
-  document.querySelectorAll('input[type="datetime-local"]').forEach(el => {
-    flatpickr(el, {
-      dateFormat: "Y-m-d H:i",
-      enableTime: true,
-      locale: english,
-      allowInput: true,
-    })
-  })
 })
 
 const saveDraft = () => {
