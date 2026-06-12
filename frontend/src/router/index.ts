@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import DefaultLayout from '../layouts/DefaultLayout.vue'
 import Dashboard from '../views/Dashboard.vue'
-import CreateClaim from '../components/CreateClaim.vue'
+import CreateClaim from '../components/claims/CreateClaim.vue'
 import Claims from '../views/Claims.vue'
 import CreateFnol from "../views/CreateFnol.vue"
 
@@ -33,6 +33,11 @@ const routes = [
       {
         path: "/inspection/new",
         component: () => import("../views/InspectionForm.vue")
+      },
+      {
+        path: "/preliminary-report",
+        name: "PreliminaryReport",
+        component: () => import("../views/Preliminaryreport.vue")
       }
     ]
   }

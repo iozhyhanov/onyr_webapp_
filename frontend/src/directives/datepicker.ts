@@ -1,6 +1,6 @@
 import flatpickr from 'flatpickr'
 import 'flatpickr/dist/flatpickr.css'
-import { DirectiveBinding } from 'vue'
+import type { DirectiveBinding } from 'vue'
 
 export const vDatepicker = {
   mounted(el: HTMLInputElement, binding: DirectiveBinding) {

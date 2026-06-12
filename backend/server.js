@@ -786,6 +786,105 @@ app.post("/api/inspections", async (req, res) => {
   }
 })
 
+// GET
+app.get("/api/inspections/by-claim/:claimId", async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        ir.ind_recent_inception, ir.ind_adverse_loss_history, ir.ind_unavailable_interview,
+        ir.ind_identity_in_doubt, ir.ind_method_not_supportable, ir.ind_dilapidated,
+        ir.ind_inadequate_documentation, ir.ind_inadequate_cooperation,
+        ir.ind_police_report_delayed, ir.ind_detailed_claims_knowledge,
+        ir.ind_claim_withdrawn, ir.ind_criminal_convictions
+      FROM inspections i
+      LEFT JOIN inspection_recovery ir ON ir.inspection_id = i.inspection_id
+      WHERE i.claim_id = ?
+      ORDER BY i.created_at DESC
+      LIMIT 1
+    `, [req.params.claimId])
+ 
+    if (!rows.length) return res.json({ indicators: {} })
+    res.json({ indicators: rows[0] })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+ 
+// POST
+app.post("/api/preliminary-reports", async (req, res) => {
+  const conn = await db.getConnection()
+  try {
+    await conn.beginTransaction()
+    const b = req.body
+    const s = (v) => (v === undefined || v === '') ? null : v
+ 
+    const [result] = await conn.execute(`
+      INSERT INTO preliminary_reports (
+        claim_id,
+        our_reference, claims_handler, broker,
+        situation_of_damage, usage_of_building, trade_occupation,
+        vat_status, vat_deducted, public_loss_assessor, registration_no,
+        notification_date, first_contact, instruction_date, first_inspection,
+        fire_brigade, policy_application, under_insurance, policy_limits,
+        recovery, policy_deductible, claim_amount, interim_payment,
+        required_from_insurer, documentation, information_points,
+        introduction, the_insured, incident_and_damage,
+        claim_details, application_of_policy, next_actions,
+        buildings_sum_insured, buildings_interim, buildings_previous, buildings_reserve,
+        chk_inception_after_incident, chk_delay_notification, chk_insured_unavailable,
+        chk_identity_in_doubt, chk_loss_method_not_supported, chk_redundant_dilapidated,
+        chk_lack_of_documentation, chk_unoccupancy, chk_no_police_report,
+        chk_suspicious_documentation, chk_lack_of_evidence, chk_sanction_verification
+      ) VALUES (
+        ?,
+        ?,?,?,
+        ?,?,?,
+        ?,?,?,?,
+        ?,?,?,?,
+        ?,?,?,?,
+        ?,?,?,?,?,
+        ?,?,
+        ?,?,?,
+        ?,?,?,
+        ?,?,?,?,
+        ?,?,?,
+        ?,?,?,
+        ?,?,?,
+        ?,?,?
+      )
+    `, [
+      s(b.claim_id),
+      s(b.our_reference), s(b.claims_handler), s(b.broker),
+      s(b.situation_of_damage), s(b.usage_of_building), s(b.trade_occupation),
+      s(b.vat_status), s(b.vat_deducted), s(b.public_loss_assessor), s(b.registration_no),
+      s(b.notification_date) || null, s(b.first_contact),
+      s(b.instruction_date) || null, s(b.first_inspection) || null,
+      s(b.fire_brigade), s(b.policy_application), s(b.under_insurance), s(b.policy_limits),
+      s(b.recovery), s(b.policy_deductible) || null, s(b.claim_amount) || null,
+      s(b.interim_payment) || null, s(b.required_from_insurer),
+      s(b.documentation), s(b.information_points),
+      s(b.introduction), s(b.the_insured), s(b.incident_and_damage),
+      s(b.claim_details), s(b.application_of_policy), s(b.next_actions),
+      s(b.buildings_sum_insured) || null, s(b.buildings_interim) || null,
+      s(b.buildings_previous) || null, s(b.buildings_reserve) || null,
+      s(b.chk_inception_after_incident), s(b.chk_delay_notification), s(b.chk_insured_unavailable),
+      s(b.chk_identity_in_doubt), s(b.chk_loss_method_not_supported), s(b.chk_redundant_dilapidated),
+      s(b.chk_lack_of_documentation), s(b.chk_unoccupancy), s(b.chk_no_police_report),
+      s(b.chk_suspicious_documentation), s(b.chk_lack_of_evidence), s(b.chk_sanction_verification)
+    ])
+ 
+    await conn.commit()
+    res.json({ ok: true, report_id: result.insertId })
+  } catch (err) {
+    await conn.rollback()
+    console.error("PRELIM ERROR:", err)
+    res.status(500).json({ error: err.message })
+  } finally {
+    conn.release()
+  }
+})
+
 // ▶ start server
 app.listen(5000, () => {
   console.log("Server läuft auf http://localhost:5000")

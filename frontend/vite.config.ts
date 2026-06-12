@@ -6,11 +6,9 @@ import path from 'path'
 export default defineConfig({
   plugins: [vue()],
 
-  root: 'frontend',
-
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'frontend/src'),
+      '@': path.resolve(__dirname, 'src'),
     },
   },
 })
