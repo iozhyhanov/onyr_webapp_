@@ -862,7 +862,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import flatpickr from "flatpickr"
 import { english } from "flatpickr/dist/l10n/default.js"
 import "flatpickr/dist/flatpickr.css"
@@ -871,6 +871,33 @@ const currentSection = ref(0)
 const isSubmitting = ref(false)
 const claims = ref([])
 const selectedClaimId = ref('')
+
+const autoFillFromClaim = (claimId) => {
+  const claim = claims.value.find(c => c.claim_id === claimId)
+  if (!claim) return
+
+  form.value.header.claimant_name    = `${claim.first_name} ${claim.last_name}`
+  form.value.header.claimant_phone   = claim.phone        || ''
+  form.value.header.claimant_email   = claim.email        || ''
+  form.value.header.insurer_name     = claim.insurer_name || ''
+  form.value.header.policy_number    = claim.policy_number || ''
+  form.value.header.claim_number     = String(claim.claim_id)
+  form.value.header.type_of_case     = claim.policy_type  || ''
+  form.value.header.date_of_incident = claim.date_of_loss
+    ? claim.date_of_loss.split('T')[0] : ''
+
+  form.value.header.type_of_loss    = claim.loss_type            || ''
+  form.value.header.details_of_loss = claim.detailed_description || ''
+  form.value.header.other_info      = claim.short_description    || ''
+
+  form.value.insured.address = [
+    claim.address_line, claim.city, claim.postcode, claim.country
+  ].filter(Boolean).join(', ')
+}
+
+watch(selectedClaimId, (newId) => {
+  if (newId) autoFillFromClaim(newId)
+})
 
 const toast = ref({ show: false, message: '', type: 'success' })
 
