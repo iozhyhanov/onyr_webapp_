@@ -22,6 +22,11 @@
       <router-link to="/inspection/new" class="block p-2 rounded hover:bg-gray-700">
         Inspection Form
       </router-link>
+
+      <router-link to="/preliminary-report" class="block p-2 rounded hover:bg-gray-700">
+        Preliminary Report
+      </router-link>
+
     </nav>
   </div>
 </template>
