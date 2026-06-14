@@ -62,12 +62,7 @@ onMounted(() => {
 
 async function createClaim() {
   try {
-    const response = await fetch("http://localhost:5000/api/claims", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
+    const response = await api.post("/api/claims", {
         // customer
         first_name: first_name.value,
         last_name: last_name.value,
@@ -84,7 +79,6 @@ async function createClaim() {
         policy_number: policy_number.value,
         policy_type: policy_type.value,
         date_of_loss: date_of_loss.value
-      })
     })
 
   

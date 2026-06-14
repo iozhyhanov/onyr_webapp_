@@ -861,16 +861,31 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { api } from "../utils/api"
 import { ref, computed, onMounted, watch } from 'vue'
 import flatpickr from "flatpickr"
 import { english } from "flatpickr/dist/l10n/default.js"
 import "flatpickr/dist/flatpickr.css"
 
+interface Claim {
+  claim_id: number
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  insurer_name: string
+  policy_number: string
+  policy_type: string
+  date_of_loss: string
+  claim_status: string
+  [key: string]: any
+}
+
 const currentSection = ref(0)
 const isSubmitting = ref(false)
-const claims = ref([])
-const selectedClaimId = ref('')
+const claims = ref<Claim[]>([])
+const selectedClaimId = ref<number | ''>('')
 
 const autoFillFromClaim = (claimId) => {
   const claim = claims.value.find(c => c.claim_id === claimId)
@@ -1001,7 +1016,7 @@ const form = ref({
       criminal_convictions: false, financial_difficulties: false,
       unreasonable_threats: false, first_policy: false, police_report_delayed: false,
       reluctance_to_repair: false
-    },
+    } as Record<string, boolean>,
     other_concerns: '', claim_status: '', enquiries_required: '',
     claim_summary: '',
     reserve: { buildings: '', trade_contents: '', stock: '', machinery: '', bi: '', other: '' },
@@ -1093,8 +1108,7 @@ const progressPct = computed(() => Math.round((completedCount.value / sections.l
 
 onMounted(async () => {
   try {
-    const res = await fetch('http://localhost:5000/api/claims')
-    claims.value = await res.json()
+    claims.value = await api.get('/api/claims')
   } catch (err) {
     console.error('Failed to load claims:', err)
   }
@@ -1114,12 +1128,7 @@ const submitInspection = async () => {
   }
   isSubmitting.value = true
   try {
-    const res = await fetch('http://localhost:5000/api/inspections', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form.value, claim_id: selectedClaimId.value, status: 'submitted' })
-    })
-    if (!res.ok) throw new Error('Server error')
+    await api.post('/api/inspections', { ...form.value, claim_id: selectedClaimId.value, status: 'submitted' })
     showToast('Inspection submitted successfully!', 'success')
   } catch (err) {
     console.error(err)

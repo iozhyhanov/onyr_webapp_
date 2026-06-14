@@ -313,7 +313,8 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { api } from "../utils/api"
 import { ref, onMounted } from 'vue'
 
 const claims = ref([])
@@ -425,15 +426,13 @@ const formatDate = (d) => {
 }
 
 onMounted(async () => {
-  const res = await fetch('http://localhost:5000/api/claims')
-  claims.value = await res.json()
+  claims.value = await api.get('/api/claims')
 })
 
 const loadClaimData = async () => {
   if (!selectedClaimId.value) return
   try {
-    const res = await fetch('http://localhost:5000/api/claims')
-    const all = await res.json()
+    const all = await api.get('/api/claims')
     const claim = all.find(c => c.claim_id === selectedClaimId.value)
     if (!claim) return
 
@@ -447,11 +446,8 @@ const loadClaimData = async () => {
     auto.value.detailed_description = claim.detailed_description || ''
 
     try {
-      const iRes = await fetch(`http://localhost:5000/api/inspections/by-claim/${selectedClaimId.value}`)
-      if (iRes.ok) {
-        const iData = await iRes.json()
-        auto.value.indicators = iData.indicators || {}
-      }
+      const iData = await api.get(`/api/inspections/by-claim/${selectedClaimId.value}`)
+      auto.value.indicators = iData.indicators || {}
     } catch (e) {
       auto.value.indicators = {}
     }
@@ -476,12 +472,7 @@ const submitReport = async () => {
   }
   isSubmitting.value = true
   try {
-    const res = await fetch('http://localhost:5000/api/preliminary-reports', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ claim_id: selectedClaimId.value, ...form.value })
-    })
-    if (!res.ok) throw new Error('Server error')
+    await api.post('/api/preliminary-reports', { claim_id: selectedClaimId.value, ...form.value })
     showToast('Report submitted successfully!', 'success')
   } catch (err) {
     console.error(err)

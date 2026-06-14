@@ -49,7 +49,8 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { api } from "../utils/api"
 import { ref, onMounted } from "vue"
 
 const claims = ref([])
@@ -66,23 +67,15 @@ const form = ref({
 })
 
 onMounted(async () => {
-  const res = await fetch("http://localhost:5000/api/claims")
-  const data = await res.json()
-
-  claims.value = data
+  claims.value = await api.get("/api/claims")
 })
 
 const createFnol = async () => {
-  const res = await fetch("http://localhost:5000/api/fnol", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(form.value)
-  })
-
-  if (res.ok) {
+  try {
+    await api.post("/api/fnol", form.value)
     alert("FNOL saved")
+  } catch (err) {
+    alert("Error saving FNOL")
   }
 }
 </script>

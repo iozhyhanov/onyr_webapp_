@@ -141,7 +141,7 @@
     </div>
 
     <!-- EDIT MODAL -->
-    <div v-if="isEditMode" @click="isEditMode = false" class="modal-overlay">
+    <div v-if="isEditMode && editClaim" @click="isEditMode = false" class="modal-overlay">
       <div @click.stop class="modal">
         <h2 class="modal-title">Edit Claim</h2>
         <div class="modal-grid">
@@ -176,28 +176,49 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { api, downloadFile } from "../utils/api"
 import { ref, onMounted, computed } from "vue"
 import { MoreVertical, Info, FileText, Clock, Search, CheckCircle } from "lucide-vue-next"
 import { nextTick } from "vue"
 import flatpickr from "flatpickr"
 
-const dateBirthEditRef = ref(null)
-const dateLossEditRef = ref(null)
+interface Claim {
+  claim_id: number
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+  date_of_birth: string
+  address_line: string
+  city: string
+  postcode: string
+  country: string
+  insurer_name: string
+  policy_number: string
+  policy_type: string
+  date_of_loss: string
+  claim_status: string
+  fnol_id: number | null
+  [key: string]: any
+}
 
-const claims = ref([])
+const dateBirthEditRef = ref<HTMLElement | null>(null)
+const dateLossEditRef = ref<HTMLElement | null>(null)
+
+const claims = ref<Claim[]>([])
 const total = ref(0)
 const open = ref(0)
 const investigation = ref(0)
 const closed = ref(0)
 const search = ref("")
 
-const activeMenu = ref(null)
-const selectedClaim = ref(null)
+const activeMenu = ref<number | null>(null)
+const selectedClaim = ref<Claim | null>(null)
 const isEditMode = ref(false)
-const editClaim = ref(null)
+const editClaim = ref<Claim | null>(null)
 
-const formatDate = (date) => {
+const formatDate = (date: string | null | undefined): string => {
   if (!date) return ""
   return new Date(date).toLocaleDateString("en-GB")
 }
@@ -249,36 +270,30 @@ const filteredClaims = computed(() => {
 
 onMounted(async () => {
   document.addEventListener("click", () => { activeMenu.value = null })
-  const res = await fetch("http://localhost:5000/api/claims")
-  const data = await res.json()
-  claims.value = data
-  recalcStats()
+  try {
+    const data = await api.get("/api/claims")
+    claims.value = data
+    recalcStats()
+  } catch {
+    // 401 → api.ts автоматически редиректит на /login
+  }
 })
 
 const saveClaim = async () => {
-  const res = await fetch(`http://localhost:5000/api/claims/${editClaim.value.claim_id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(editClaim.value)
-  })
-  if (!res.ok) return
-  const index = claims.value.findIndex(c => c.claim_id === editClaim.value.claim_id)
-  if (index !== -1) claims.value[index] = { ...editClaim.value }
-  recalcStats()
-  isEditMode.value = false
-  editClaim.value = null
+  try {
+    await api.put(`/api/claims/${editClaim.value.claim_id}`, editClaim.value)
+    const index = claims.value.findIndex(c => c.claim_id === editClaim.value.claim_id)
+    if (index !== -1) claims.value[index] = { ...editClaim.value }
+    recalcStats()
+    isEditMode.value = false
+    editClaim.value = null
+  } catch (err) {
+    console.error("Save failed:", err)
+  }
 }
 
 const downloadDoc = async (id) => {
-  const res = await fetch(`http://localhost:5000/api/claims/${id}/doc`)
-  const blob = await res.blob()
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = `claim_${id}.docx`
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
+  await downloadFile(`/api/claims/${id}/doc`, `claim_${id}.docx`)
 }
 </script>
 
