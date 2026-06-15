@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import DefaultLayout from '../layouts/DefaultLayout.vue'
 import Dashboard from '../views/Dashboard.vue'
 import CreateClaim from '../components/claims/CreateClaim.vue'
@@ -7,7 +7,7 @@ import CreateFnol from '../views/CreateFnol.vue'
 import LoginView from '../views/LoginView.vue'
 import { useAuthStore } from '../stores/auth.store'
 
-const routes = [
+const routes: RouteRecordRaw[] = [
   // ── Public ────────────────────────────────────────────
   {
     path: '/login',
