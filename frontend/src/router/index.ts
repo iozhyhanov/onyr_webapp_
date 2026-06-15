@@ -38,6 +38,11 @@ const routes = [
         component: Claims,
       },
       {
+        path: 'claims/:id',
+        name: 'ClaimDetail',
+        component: () => import('../views/ClaimDetail.vue'),
+      },
+      {
         path: '/fnol',
         name: 'fnol',
         component: CreateFnol,
