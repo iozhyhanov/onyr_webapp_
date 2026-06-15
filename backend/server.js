@@ -13,6 +13,47 @@ import jwt from "jsonwebtoken"
 
 const JWT_SECRET = process.env.JWT_SECRET
 
+// ── VALIDATION ───────────────────────────────────────────────
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const DATE_RE  = /^\d{4}-\d{2}-\d{2}$/
+
+function validate(rules) {
+  return (req, res, next) => {
+    const errors = []
+    for (const [field, checks] of Object.entries(rules)) {
+      const val = req.body[field]
+      if (checks.required && (val === undefined || val === null || val === "")) {
+        errors.push(`${field} is required`)
+        continue
+      }
+      if (val === undefined || val === null || val === "") continue
+      if (checks.type === "string" && typeof val !== "string") {
+        errors.push(`${field} must be a string`)
+      }
+      if (checks.type === "number" && isNaN(Number(val))) {
+        errors.push(`${field} must be a number`)
+      }
+      if (checks.min && typeof val === "string" && val.trim().length < checks.min) {
+        errors.push(`${field} must be at least ${checks.min} characters`)
+      }
+      if (checks.email && !EMAIL_RE.test(val)) {
+        errors.push(`${field} must be a valid email`)
+      }
+      if (checks.date && !DATE_RE.test(val)) {
+        errors.push(`${field} must be a valid date (YYYY-MM-DD)`)
+      }
+      if (checks.enum && !checks.enum.includes(val)) {
+        errors.push(`${field} must be one of: ${checks.enum.join(", ")}`)
+      }
+    }
+    if (errors.length > 0) {
+      return res.status(400).json({ error: "Validation failed", details: errors })
+    }
+    next()
+  }
+}
+
 // ── Auth middleware ──────────────────────────────────────
 const authMiddleware = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1]
@@ -93,7 +134,10 @@ app.get("/", (req, res) => {
 
 // ── AUTH ─────────────────────────────────────────────────
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", validate({
+  username: { required: true, type: "string" },
+  password: { required: true, type: "string" }
+}), async (req, res) => {
   const { username, password } = req.body
   try {
     const [rows] = await db.query("SELECT * FROM users WHERE username = ?", [username])
@@ -132,9 +176,12 @@ app.get("/api/users", authMiddleware, adminOnly, async (req, res) => {
   }
 })
 
-app.post("/api/users", authMiddleware, adminOnly, async (req, res) => {
+app.post("/api/users", authMiddleware, adminOnly, validate({
+  username: { required: true, type: "string", min: 3 },
+  password: { required: true, type: "string", min: 6 },
+  role:     { enum: ["admin", "worker"] }
+}), async (req, res) => {
   const { username, password, full_name, role = "worker" } = req.body
-  if (!username || !password) return res.status(400).json({ error: "username and password required" })
   try {
     const hash = await bcrypt.hash(password, 10)
     const [result] = await db.execute(
@@ -159,7 +206,15 @@ app.delete("/api/users/:id", authMiddleware, adminOnly, async (req, res) => {
 
 // ── CLAIMS ───────────────────────────────────────────────
 
-app.post("/api/claims", authMiddleware, async (req, res) => {
+app.post("/api/claims", authMiddleware, validate({
+  first_name:    { required: true, type: "string" },
+  last_name:     { required: true, type: "string" },
+  insurer_name:  { required: true, type: "string" },
+  policy_number: { required: true, type: "string" },
+  email:         { email: true },
+  date_of_birth: { date: true },
+  date_of_loss:  { date: true }
+}), async (req, res) => {
   const data = req.body
   const connection = await db.getConnection()
   try {
@@ -326,7 +381,10 @@ app.get("/api/claims/:id/doc", authMiddleware, async (req, res) => {
 
 // ── FNOL ─────────────────────────────────────────────────
 
-app.post("/api/fnol", authMiddleware, async (req, res) => {
+app.post("/api/fnol", authMiddleware, validate({
+  claim_id:  { required: true, type: "number" },
+  loss_type: { required: true, type: "string" }
+}), async (req, res) => {
   const data = req.body
   const safe = (v) => v === undefined ? null : v
   try {
@@ -350,7 +408,9 @@ app.post("/api/fnol", authMiddleware, async (req, res) => {
 
 // ── INSPECTIONS ───────────────────────────────────────────
 
-app.post("/api/inspections", authMiddleware, async (req, res) => {
+app.post("/api/inspections", authMiddleware, validate({
+  claim_id: { required: true, type: "number" }
+}), async (req, res) => {
   const conn = await db.getConnection()
   try {
     await conn.beginTransaction()
@@ -599,7 +659,10 @@ app.get("/api/inspections/by-claim/:claimId", authMiddleware, async (req, res) =
 
 // ── PRELIMINARY REPORTS ───────────────────────────────────
 
-app.post("/api/preliminary-reports", authMiddleware, async (req, res) => {
+app.post("/api/preliminary-reports", authMiddleware, validate({
+  claim_id:      { required: true, type: "number" },
+  our_reference: { required: true, type: "string" }
+}), async (req, res) => {
   const conn = await db.getConnection()
   try {
     await conn.beginTransaction()
