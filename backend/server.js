@@ -1,3 +1,4 @@
+import "dotenv/config"
 import express from "express"
 import mysql from "mysql2/promise"
 import cors from "cors"
@@ -10,7 +11,7 @@ import { Document, Packer, Paragraph, TextRun } from "docx"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 
-const JWT_SECRET = process.env.JWT_SECRET || "onyr-secret-key-change-in-production"
+const JWT_SECRET = process.env.JWT_SECRET
 
 // ── Auth middleware ──────────────────────────────────────
 const authMiddleware = (req, res, next) => {
@@ -42,10 +43,11 @@ app.use((req, res, next) => {
 
 // DB pool
 const db = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "123",
-  database: "onyrdb"
+  host:     process.env.DB_HOST,
+  user:     process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port:     Number(process.env.DB_PORT) || 3306
 })
 
 // ── HELPERS ──────────────────────────────────────────────
@@ -656,6 +658,7 @@ app.post("/api/preliminary-reports", authMiddleware, async (req, res) => {
 
 // ── START SERVER ──────────────────────────────────────────
 
-app.listen(5000, () => {
-  console.log("Server running on http://localhost:5000")
+const PORT = process.env.PORT || 5000
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`)
 })
