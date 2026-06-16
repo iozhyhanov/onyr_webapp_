@@ -1,8 +1,18 @@
 <template>
   <div class="inspection-shell">
 
-    <!-- SIDEBAR -->
+    <!-- SIDEBAR — teleported into DefaultLayout's #inspection-sidebar-target -->
+    <Teleport to="#inspection-sidebar-target">
     <aside class="sidebar">
+
+      <!-- Back button -->
+      <button class="back-btn" @click="router.push('/')">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <polyline points="9,2 4,7 9,12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Back to Dashboard
+      </button>
+
       <div class="sidebar-header">
         <div class="sidebar-logo">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -45,6 +55,7 @@
         </button>
       </div>
     </aside>
+    </Teleport>
 
     <!-- MAIN CONTENT -->
     <main class="main-content">
@@ -863,7 +874,16 @@
 
 <script setup lang="ts">
 import { api } from "../utils/api"
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useSidebarStore } from '../stores/sidebar.store'
+
+const router = useRouter()
+const sidebarStore = useSidebarStore()
+
+// Activate inspection sidebar before render, restore on leave
+sidebarStore.isInspectionMode = true
+onUnmounted(() => { sidebarStore.isInspectionMode = false })
 import flatpickr from "flatpickr"
 import { english } from "flatpickr/dist/l10n/default.js"
 import "flatpickr/dist/flatpickr.css"
@@ -1148,24 +1168,43 @@ const submitInspection = async () => {
 }
 
 .inspection-shell {
-  display: flex;
-  min-height: 100vh;
-  background: #f1f5f9;
   font-family: Arial, sans-serif;
   color: #0f172a;
 }
 
+/* ── BACK BUTTON ── */
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #1e293b;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: Arial, sans-serif;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s, background 0.15s;
+  letter-spacing: 0.02em;
+}
+
+.back-btn:hover {
+  color: #94a3b8;
+  background: #1e293b;
+}
+
 /* ── SIDEBAR ── */
 .sidebar {
-  width: 210px;
-  min-width: 210px;
+  width: 100%;
+  height: 100%;
   background: #0f172a;
   color: #94a3b8;
   display: flex;
   flex-direction: column;
-  position: sticky;
-  top: 0;
-  height: 100vh;
   overflow-y: auto;
 }
 
@@ -1307,7 +1346,6 @@ const submitInspection = async () => {
 
 /* ── MAIN CONTENT ── */
 .main-content {
-  flex: 1;
   padding: 28px 32px;
 }
 

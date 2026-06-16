@@ -1,5 +1,5 @@
 <template>
-  <div class="w-64 bg-gray-900 text-white p-4 flex flex-col">
+  <div class="w-full h-full bg-gray-900 text-white p-4 flex flex-col">
     <h2 class="text-xl font-bold mb-6">ONYR</h2>
 
     <nav class="space-y-1 flex-1">
