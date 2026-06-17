@@ -346,38 +346,154 @@ app.get("/api/claims/:id/doc", authMiddleware, async (req, res) => {
     const data = rows[0]
     if (!data) return res.status(404).send("Claim not found")
 
+    // ── Design constants (same as inspection doc) ────────────
+    const W     = 9026
+    const COL_L = 2706
+    const COL_V = 6320
+    const DARK  = "0F172A"
+    const BLUE  = "2563EB"
+    const LGRAY = "F8FAFC"
+    const MGRAY = "E2E8F0"
+    const TEXT  = "0F172A"
+    const MUTED = "64748B"
+    const WHITE = "FFFFFF"
+    const s     = (v) => (v == null ? "" : String(v))
+
+    const thinBorder = { style: BorderStyle.SINGLE, size: 1, color: MGRAY }
+    const allBorders = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder }
+    const noneB      = { style: BorderStyle.NONE, size: 0, color: WHITE }
+    const noBorders  = { top: noneB, bottom: noneB, left: noneB, right: noneB, insideH: noneB, insideV: noneB }
+    const pad        = { top: 100, bottom: 100, left: 160, right: 160 }
+    const padSm      = { top: 60,  bottom: 60,  left: 160, right: 160 }
+
+    const sectionHdr = (title) => new Table({
+      width: { size: W, type: WidthType.DXA }, columnWidths: [W],
+      rows: [new TableRow({ children: [new TableCell({
+        borders: noBorders, width: { size: W, type: WidthType.DXA },
+        shading: { fill: DARK, type: ShadingType.CLEAR },
+        margins: { top: 140, bottom: 140, left: 200, right: 200 },
+        children: [new Paragraph({ children: [new TextRun({ text: title, bold: true, size: 22, color: WHITE, font: "Arial" })] })]
+      })]})]
+    })
+
+    const dataTable = (pairs) => new Table({
+      width: { size: W, type: WidthType.DXA }, columnWidths: [COL_L, COL_V],
+      rows: pairs.map(([label, value]) => new TableRow({ children: [
+        new TableCell({ borders: allBorders, width: { size: COL_L, type: WidthType.DXA },
+          shading: { fill: LGRAY, type: ShadingType.CLEAR }, margins: padSm,
+          children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 18, font: "Arial", color: MUTED })] })] }),
+        new TableCell({ borders: allBorders, width: { size: COL_V, type: WidthType.DXA }, margins: padSm,
+          children: [new Paragraph({ children: [new TextRun({ text: s(value), size: 18, font: "Arial", color: TEXT })] })] }),
+      ]}))
+    })
+
+    const gap = (n = 160) => new Paragraph({ spacing: { before: n, after: 0 }, children: [] })
+
+    // Cover
+    const H2 = 2256
+    const coverTable = new Table({
+      width: { size: W, type: WidthType.DXA }, columnWidths: [H2, H2],
+      rows: [
+        new TableRow({ children: [
+          new TableCell({ borders: noBorders, width: { size: H2, type: WidthType.DXA }, margins: pad,
+            children: [new Paragraph({ children: [new TextRun({ text: "Claimant", bold: true, size: 18, font: "Arial", color: MUTED })] })] }),
+          new TableCell({ borders: noBorders, width: { size: H2, type: WidthType.DXA }, margins: pad,
+            children: [new Paragraph({ children: [new TextRun({ text: "Insurer", bold: true, size: 18, font: "Arial", color: MUTED })] })] }),
+        ]}),
+        new TableRow({ children: [
+          new TableCell({ borders: { bottom: thinBorder, top: noneB, left: noneB, right: noneB }, width: { size: H2, type: WidthType.DXA }, margins: { ...pad, bottom: 160 },
+            children: [new Paragraph({ children: [new TextRun({ text: `${s(data.first_name)} ${s(data.last_name)}`, bold: true, size: 24, font: "Arial", color: DARK })] })] }),
+          new TableCell({ borders: { bottom: thinBorder, top: noneB, left: noneB, right: noneB }, width: { size: H2, type: WidthType.DXA }, margins: { ...pad, bottom: 160 },
+            children: [new Paragraph({ children: [new TextRun({ text: s(data.insurer_name), bold: true, size: 24, font: "Arial", color: DARK })] })] }),
+        ]}),
+        new TableRow({ children: [
+          new TableCell({ borders: noBorders, width: { size: H2, type: WidthType.DXA }, margins: { ...pad, top: 160 },
+            children: [new Paragraph({ children: [new TextRun({ text: `Policy: ${s(data.policy_number)}`, size: 18, font: "Arial", color: MUTED })] })] }),
+          new TableCell({ borders: noBorders, width: { size: H2, type: WidthType.DXA }, margins: { ...pad, top: 160 },
+            children: [new Paragraph({ children: [new TextRun({ text: `Type: ${s(data.policy_type)}`, size: 18, font: "Arial", color: MUTED })] })] }),
+        ]}),
+      ]
+    })
+
+    const children = [
+      // Title
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 400, after: 80 },
+        children: [new TextRun({ text: "FIRST NOTICE OF LOSS", bold: true, size: 48, font: "Arial", color: DARK })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 60 },
+        children: [new TextRun({ text: `Claim #${id}  |  ${new Date().toLocaleDateString("en-GB")}`, size: 20, font: "Arial", color: MUTED })] }),
+      new Paragraph({ spacing: { after: 280 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: BLUE, space: 1 } }, children: [] }),
+      coverTable,
+      gap(320),
+
+      // 1. Claimant Details
+      sectionHdr("1.  Claimant Details"),
+      gap(60),
+      dataTable([
+        ["Full Name",    `${s(data.first_name)} ${s(data.last_name)}`],
+        ["Phone",        data.phone],
+        ["Email",        data.email],
+        ["Address",      [data.address_line, data.city, data.postcode, data.country].filter(Boolean).join(", ")],
+      ]),
+      gap(240),
+
+      // 2. Policy Details
+      sectionHdr("2.  Policy Details"),
+      gap(60),
+      dataTable([
+        ["Insurer",        data.insurer_name],
+        ["Policy Number",  data.policy_number],
+        ["Policy Type",    data.policy_type],
+        ["Claim Number",   String(data.claim_id)],
+        ["Date of Loss",   formatDate(data.date_of_loss)],
+      ]),
+      gap(240),
+
+      // 3. Loss Details
+      sectionHdr("3.  Loss Details"),
+      gap(60),
+      dataTable([
+        ["Type of Loss",        data.loss_type],
+        ["Loss Time",           data.loss_time],
+        ["Loss Location",       data.loss_location],
+        ["Short Description",   data.short_description],
+        ["Detailed Description",data.detailed_description],
+        ["Third Party Involved",data.third_party_involved],
+        ["Police Report No.",   data.police_report_number],
+      ]),
+      gap(240),
+    ]
+
     const doc = new Document({
       sections: [{
-        children: [
-          new Paragraph({ alignment: "center", children: [new TextRun({ text: "FIRST NOTICE OF LOSS", bold: true, size: 32 })] }),
-          new Paragraph(""),
-          new Paragraph({ children: [new TextRun({ text: "File Number: ", bold: true }), new TextRun(String(data.claim_id))] }),
-          new Paragraph({ children: [new TextRun({ text: "Date: ", bold: true }), new TextRun({ text: new Date().toLocaleDateString("en-GB"), underline: {} })] }),
-          new Paragraph({ children: [new TextRun({ text: "Date of Incident: ", bold: true }), new TextRun(formatDate(data.date_of_loss) || "")] }),
-          new Paragraph(""),
-          new Paragraph({ children: [new TextRun({ text: "CLAIMANT DETAILS", bold: true, size: 26 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Name of Claimant: ", bold: true }), new TextRun(`${data.first_name} ${data.last_name}`)] }),
-          new Paragraph({ children: [new TextRun({ text: "Contact number: ", bold: true }), new TextRun(safe(data.phone))] }),
-          new Paragraph({ children: [new TextRun({ text: "Email: ", bold: true }), new TextRun(safe(data.email))] }),
-          new Paragraph(""),
-          new Paragraph({ children: [new TextRun({ text: "INSURER DETAILS", bold: true, size: 26 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Name of Insurer: ", bold: true }), new TextRun(safe(data.insurer_name))] }),
-          new Paragraph(""),
-          new Paragraph({ children: [new TextRun({ text: "POLICY DETAILS", bold: true, size: 26 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Type of case: ", bold: true }), new TextRun(safe(data.policy_type))] }),
-          new Paragraph({ children: [new TextRun({ text: "Policy Number: ", bold: true }), new TextRun(safe(data.policy_number))] }),
-          new Paragraph({ children: [new TextRun({ text: "Claim number: ", bold: true }), new TextRun(String(data.claim_id))] }),
-          new Paragraph(""),
-          new Paragraph({ children: [new TextRun({ text: "LOSS DETAILS", bold: true, size: 26 })] }),
-          new Paragraph({ children: [new TextRun({ text: "Type of loss: ", bold: true }), new TextRun(safe(data.loss_type))] }),
-          new Paragraph({ children: [new TextRun({ text: "Details of loss: ", bold: true }), new TextRun(safe(data.detailed_description))] }),
-          new Paragraph({ children: [new TextRun({ text: "Other information: ", bold: true }), new TextRun(safe(data.short_description))] }),
-        ]
+        properties: { page: { margin: { top: 1440, right: 1260, bottom: 1440, left: 1260 } } },
+        headers: {
+          default: new Header({ children: [new Paragraph({
+            border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: MGRAY, space: 1 } },
+            children: [
+              new TextRun({ text: "ONYR Insurance", bold: true, size: 18, font: "Arial", color: DARK }),
+              new TextRun({ text: `  |  First Notice of Loss  |  Claim #${id}`, size: 18, font: "Arial", color: MUTED }),
+            ]
+          })] })
+        },
+        footers: {
+          default: new Footer({ children: [new Paragraph({
+            alignment: AlignmentType.CENTER,
+            border: { top: { style: BorderStyle.SINGLE, size: 4, color: MGRAY, space: 1 } },
+            children: [
+              new TextRun({ text: "Page ", size: 16, font: "Arial", color: MUTED }),
+              new TextRun({ children: [PageNumber.CURRENT], size: 16, font: "Arial", color: MUTED }),
+              new TextRun({ text: " of ", size: 16, font: "Arial", color: MUTED }),
+              new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, font: "Arial", color: MUTED }),
+            ]
+          })] })
+        },
+        children
       }]
     })
 
     const buffer = await Packer.toBuffer(doc)
-    res.setHeader("Content-Disposition", `attachment; filename=claim_${id}.docx`)
+    res.setHeader("Content-Disposition", `attachment; filename=fnol_${id}.docx`)
     res.send(buffer)
   } catch (err) {
     console.error(err)
