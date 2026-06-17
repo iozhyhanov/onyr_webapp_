@@ -241,10 +241,12 @@ app.get("/api/claims", authMiddleware, async (req, res) => {
         customers.first_name, customers.last_name, customers.email,
         customers.phone, customers.date_of_birth, customers.address_line,
         customers.city, customers.postcode, customers.country,
-        fnol.fnol_id
+        fnol.fnol_id,
+        inspections.inspection_id
       FROM claims
       JOIN customers ON claims.customer_id = customers.customer_id
       LEFT JOIN fnol ON fnol.claim_id = claims.claim_id
+      LEFT JOIN inspections ON inspections.claim_id = claims.claim_id
       ORDER BY claims.created_at DESC
     `)
     res.json(rows)

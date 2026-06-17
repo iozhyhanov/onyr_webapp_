@@ -68,7 +68,8 @@
             <th>Insurer</th>
             <th>Date of Loss</th>
             <th>Status</th>
-            <th>FNOL</th>
+            <th style="text-align:center">FNOL</th>
+            <th style="text-align:center">Inspection</th>
             <th></th>
           </tr>
         </thead>
@@ -91,9 +92,14 @@
                 {{ c.claim_status }}
               </span>
             </td>
-            <td>
+            <td style="text-align:center">
               <span class="fnol-badge" :class="c.fnol_id ? 'fnol-yes' : 'fnol-no'">
                 {{ c.fnol_id ? 'YES' : 'NO' }}
+              </span>
+            </td>
+            <td style="text-align:center">
+              <span class="fnol-badge" :class="c.inspection_id ? 'fnol-yes' : 'fnol-no'">
+                {{ c.inspection_id ? 'YES' : 'NO' }}
               </span>
             </td>
             <td class="menu-cell">
@@ -200,6 +206,7 @@ interface Claim {
   date_of_loss: string
   claim_status: string
   fnol_id: number | null
+  inspection_id: number | null
   [key: string]: any
 }
 
