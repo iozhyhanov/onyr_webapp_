@@ -7,7 +7,11 @@ import PizZip from "pizzip"
 import Docxtemplater from "docxtemplater"
 import path from "path"
 import { fileURLToPath } from "url"
-import { Document, Packer, Paragraph, TextRun } from "docx"
+import {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  WidthType, BorderStyle, ShadingType, AlignmentType,
+  Header, Footer, PageNumber, VerticalAlign
+} from "docx"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 
@@ -656,6 +660,549 @@ app.get("/api/inspections/by-claim/:claimId", authMiddleware, async (req, res) =
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: err.message })
+  }
+})
+
+app.get("/api/inspections/:id/doc", authMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id
+    const safe = (v) => (v == null || v === undefined ? "" : String(v))
+
+    // ── Design constants ──────────────────────────────────────
+    const W     = 9026   // A4 content width (11906 - 2x1440 margins) in DXA
+    const COL_L = 2706   // Label column (~30%)
+    const COL_V = 6320   // Value column (~70%)
+    const DARK  = "0F172A"
+    const BLUE  = "2563EB"
+    const LGRAY = "F8FAFC"
+    const MGRAY = "E2E8F0"
+    const TEXT  = "0F172A"
+    const MUTED = "64748B"
+    const WHITE = "FFFFFF"
+
+    const thinBorder  = { style: BorderStyle.SINGLE, size: 1, color: MGRAY }
+    const allBorders  = { top: thinBorder, bottom: thinBorder, left: thinBorder, right: thinBorder }
+    const noneB       = { style: BorderStyle.NONE, size: 0, color: WHITE }
+    const noBorders   = { top: noneB, bottom: noneB, left: noneB, right: noneB, insideH: noneB, insideV: noneB }
+    const pad         = { top: 100, bottom: 100, left: 160, right: 160 }
+    const padSm       = { top: 60,  bottom: 60,  left: 160, right: 160 }
+
+    // Section header row (dark background)
+    const sectionHdr = (title) => new Table({
+      width: { size: W, type: WidthType.DXA },
+      columnWidths: [W],
+      rows: [new TableRow({ children: [
+        new TableCell({
+          borders: noBorders,
+          width: { size: W, type: WidthType.DXA },
+          shading: { fill: DARK, type: ShadingType.CLEAR },
+          margins: { top: 140, bottom: 140, left: 200, right: 200 },
+          children: [new Paragraph({ children: [
+            new TextRun({ text: title, bold: true, size: 22, color: WHITE, font: "Arial" })
+          ]})]
+        })
+      ]})]
+    })
+
+    // Sub-header row (blue background)
+    const subHdr = (title) => new Table({
+      width: { size: W, type: WidthType.DXA },
+      columnWidths: [W],
+      rows: [new TableRow({ children: [
+        new TableCell({
+          borders: noBorders,
+          width: { size: W, type: WidthType.DXA },
+          shading: { fill: BLUE, type: ShadingType.CLEAR },
+          margins: { top: 80, bottom: 80, left: 200, right: 200 },
+          children: [new Paragraph({ children: [
+            new TextRun({ text: title, bold: true, size: 18, color: WHITE, font: "Arial" })
+          ]})]
+        })
+      ]})]
+    })
+
+    // Data table — array of [label, value] pairs
+    const dataTable = (pairs) => new Table({
+      width: { size: W, type: WidthType.DXA },
+      columnWidths: [COL_L, COL_V],
+      rows: pairs.map(([label, value], idx) => new TableRow({ children: [
+        new TableCell({
+          borders: allBorders,
+          width: { size: COL_L, type: WidthType.DXA },
+          shading: { fill: LGRAY, type: ShadingType.CLEAR },
+          margins: padSm,
+          children: [new Paragraph({ children: [
+            new TextRun({ text: label, bold: true, size: 18, font: "Arial", color: MUTED })
+          ]})]
+        }),
+        new TableCell({
+          borders: allBorders,
+          width: { size: COL_V, type: WidthType.DXA },
+          margins: padSm,
+          children: [new Paragraph({ children: [
+            new TextRun({ text: safe(value), size: 18, font: "Arial", color: TEXT })
+          ]})]
+        })
+      ]}))
+    })
+
+    // Multi-column table for wide data (e.g. damaged areas)
+    const multiTable = (headers, colWidths, rows) => {
+      const hdrRow = new TableRow({ children: headers.map((h, i) =>
+        new TableCell({
+          borders: allBorders,
+          width: { size: colWidths[i], type: WidthType.DXA },
+          shading: { fill: MGRAY, type: ShadingType.CLEAR },
+          margins: padSm,
+          children: [new Paragraph({ children: [
+            new TextRun({ text: h, bold: true, size: 18, font: "Arial", color: MUTED })
+          ]})]
+        })
+      )})
+      const dataRows = rows.map(cells => new TableRow({ children: cells.map((c, i) =>
+        new TableCell({
+          borders: allBorders,
+          width: { size: colWidths[i], type: WidthType.DXA },
+          margins: padSm,
+          children: [new Paragraph({ children: [
+            new TextRun({ text: safe(c), size: 18, font: "Arial" })
+          ]})]
+        })
+      )}))
+      return new Table({
+        width: { size: W, type: WidthType.DXA },
+        columnWidths: colWidths,
+        rows: [hdrRow, ...dataRows]
+      })
+    }
+
+    const gap = (n = 160) => new Paragraph({ spacing: { before: n, after: 0 }, children: [] })
+
+    const [rows] = await db.query(`
+      SELECT
+        i.inspection_id, i.file_number, i.date, i.date_of_incident,
+        i.policy_number, i.claim_number, i.type_of_case,
+        i.claimant_name, i.claimant_phone, i.claimant_email,
+        i.insurer_name, i.insurer_other, i.other_rep, i.other_rep_email, i.other_rep_phone,
+        i.type_of_loss, i.details_of_loss, i.inspection_date, i.other_info,
+        s.incident_ref, s.field_adjuster, s.internal_adjuster,
+        s.visit_date, s.visit_time, s.persons_present, s.contact_numbers,
+        s.gdpr_obtained, s.gdpr_reason, s.adjuster_notes AS site_notes,
+        ins.policyholder_name_dob, ins.occupation, ins.address AS insured_address,
+        ins.period_of_residence, ins.previous_addresses, ins.period_on_cover,
+        ins.previous_insurers, ins.previous_claim_1, ins.previous_claim_2, ins.previous_claim_3,
+        ins.convictions, ins.other_occupiers, ins.adjuster_notes AS insured_notes,
+        pr.property_type, pr.storeys, pr.bedrooms, pr.roof, pr.basement_attic,
+        pr.date_of_construction, pr.listing_status, pr.maintenance_standard, pr.ownership_status,
+        pt.front_door_lock_make, pt.front_door_lock_type,
+        pt.rear_door_lock_make, pt.rear_door_lock_type,
+        pt.side_door_lock_make, pt.side_door_lock_type,
+        pt.alarm_details, pt.recommendations, pt.risk_issues,
+        pt.warranties_complied, pt.warranties_notes, pt.adjuster_notes AS prot_notes,
+        dv.discovered_datetime, dv.discovered_by, dv.last_occupied,
+        dv.operating_peril, dv.circumstances, dv.causation_issues,
+        dv.evidence, dv.adjuster_notes AS disc_notes,
+        th.occupants_prior, th.last_to_leave, th.fully_secured,
+        th.method_of_entry, th.method_of_exit, th.force_evidence,
+        th.crn, th.police_station, th.police_report_required, th.adjuster_notes AS theft_notes,
+        bl.damaged_areas, bl.room_damage, bl.damage_consistent,
+        bl.betterment, bl.maintenance, bl.actions_quantum, bl.adjuster_notes AS bldg_notes,
+        ct.items AS contents_items, ct.total_amount,
+        ct.proof_of_ownership, ct.specialist_reports, ct.adjuster_notes AS cont_notes,
+        ac.uninhabitable, ac.uninhabitable_details, ac.who_lives_there,
+        ac.alternatives_discussed, ac.disruption_period, ac.cessation_of_rent,
+        ac.further_actions, ac.adjuster_notes AS accom_notes,
+        si.buildings_sum, si.buildings_var, si.additional_var, si.buildings_adequacy,
+        si.buildings_notes, si.sketch_plan, si.contents_sum, si.room_breakdown,
+        si.basis_of_valuation, si.contents_adequacy, si.contents_notes,
+        rc.responsible_party, rc.other_concerns, rc.claim_status, rc.enquiries_required,
+        rc.claim_summary, rc.reserve_buildings, rc.reserve_trade_contents,
+        rc.reserve_stock, rc.reserve_machinery, rc.reserve_bi, rc.reserve_other,
+        rc.action_issues, rc.action_adjuster, rc.action_policyholder, rc.action_notes
+      FROM inspections i
+      LEFT JOIN inspection_site         s   ON s.inspection_id   = i.inspection_id
+      LEFT JOIN inspection_insured      ins ON ins.inspection_id = i.inspection_id
+      LEFT JOIN inspection_premises     pr  ON pr.inspection_id  = i.inspection_id
+      LEFT JOIN inspection_protections  pt  ON pt.inspection_id  = i.inspection_id
+      LEFT JOIN inspection_discovery    dv  ON dv.inspection_id  = i.inspection_id
+      LEFT JOIN inspection_theft        th  ON th.inspection_id  = i.inspection_id
+      LEFT JOIN inspection_buildings    bl  ON bl.inspection_id  = i.inspection_id
+      LEFT JOIN inspection_contents     ct  ON ct.inspection_id  = i.inspection_id
+      LEFT JOIN inspection_accommodation ac ON ac.inspection_id  = i.inspection_id
+      LEFT JOIN inspection_sum_insured  si  ON si.inspection_id  = i.inspection_id
+      LEFT JOIN inspection_recovery     rc  ON rc.inspection_id  = i.inspection_id
+      WHERE i.inspection_id = ?
+    `, [id])
+
+    if (!rows.length) return res.status(404).send("Inspection not found")
+    const d = rows[0]
+
+    // Parse JSON fields
+    let damagedAreas = []
+    let contentsItems = []
+    try { damagedAreas  = JSON.parse(d.damaged_areas  || "[]") } catch {}
+    try { contentsItems = JSON.parse(d.contents_items || "[]") } catch {}
+
+    // ── Cover title ──────────────────────────────────────────
+    const titlePara = new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 400, after: 80 },
+      children: [new TextRun({ text: "INSPECTION REPORT", bold: true, size: 48, font: "Arial", color: DARK })]
+    })
+    const subtitlePara = new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 60 },
+      children: [new TextRun({ text: `File No: ${safe(d.file_number)}  |  Inspection #${id}  |  ${safe(d.date)}`, size: 20, font: "Arial", color: MUTED })]
+    })
+    const dividerLine = new Paragraph({
+      spacing: { after: 280 },
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: BLUE, space: 1 } },
+      children: []
+    })
+
+    // ── Cover summary table ───────────────────────────────────
+    const H2 = 2256   // half width
+    const coverTable = new Table({
+      width: { size: W, type: WidthType.DXA },
+      columnWidths: [H2, H2],
+      rows: [
+        new TableRow({ children: [
+          new TableCell({ borders: noBorders, width: { size: H2, type: WidthType.DXA }, margins: pad,
+            children: [new Paragraph({ children: [new TextRun({ text: "Claimant", bold: true, size: 18, font: "Arial", color: MUTED })] })] }),
+          new TableCell({ borders: noBorders, width: { size: H2, type: WidthType.DXA }, margins: pad,
+            children: [new Paragraph({ children: [new TextRun({ text: "Insurer", bold: true, size: 18, font: "Arial", color: MUTED })] })] }),
+        ]}),
+        new TableRow({ children: [
+          new TableCell({ borders: { bottom: thinBorder, top: noneB, left: noneB, right: noneB }, width: { size: H2, type: WidthType.DXA }, margins: { ...pad, bottom: 160 },
+            children: [new Paragraph({ children: [new TextRun({ text: safe(d.claimant_name), bold: true, size: 24, font: "Arial", color: DARK })] })] }),
+          new TableCell({ borders: { bottom: thinBorder, top: noneB, left: noneB, right: noneB }, width: { size: H2, type: WidthType.DXA }, margins: { ...pad, bottom: 160 },
+            children: [new Paragraph({ children: [new TextRun({ text: safe(d.insurer_name), bold: true, size: 24, font: "Arial", color: DARK })] })] }),
+        ]}),
+        new TableRow({ children: [
+          new TableCell({ borders: noBorders, width: { size: H2, type: WidthType.DXA }, margins: { ...pad, top: 160 },
+            children: [new Paragraph({ children: [new TextRun({ text: `Policy: ${safe(d.policy_number)}`, size: 18, font: "Arial", color: MUTED })] })] }),
+          new TableCell({ borders: noBorders, width: { size: H2, type: WidthType.DXA }, margins: { ...pad, top: 160 },
+            children: [new Paragraph({ children: [new TextRun({ text: `Type: ${safe(d.type_of_case)}`, size: 18, font: "Arial", color: MUTED })] })] }),
+        ]}),
+        new TableRow({ children: [
+          new TableCell({ borders: noBorders, width: { size: H2, type: WidthType.DXA }, margins: pad,
+            children: [new Paragraph({ children: [new TextRun({ text: `Date of Incident: ${safe(d.date_of_incident)}`, size: 18, font: "Arial", color: MUTED })] })] }),
+          new TableCell({ borders: noBorders, width: { size: H2, type: WidthType.DXA }, margins: pad,
+            children: [new Paragraph({ children: [new TextRun({ text: `Type of Loss: ${safe(d.type_of_loss)}`, size: 18, font: "Arial", color: MUTED })] })] }),
+        ]}),
+      ]
+    })
+
+    // ── Buildings damaged areas table ────────────────────────
+    const areasCols = [2406, 1655, 1655, 1655, 1655]  // Area | L | W | H | total=9026
+    const areasTable = damagedAreas.length ? multiTable(
+      ["Area", "Length", "Width", "Height", "Notes"],
+      areasCols,
+      damagedAreas.map(a => [a.area, a.length, a.width, a.height, ""])
+    ) : null
+
+    // ── Contents items table ─────────────────────────────────
+    const contCols = [3510, 3510, 2006]  // Item | Description | Amount
+    const contTable = contentsItems.length ? multiTable(
+      ["Item", "Description", "Amount (€)"],
+      contCols,
+      contentsItems.map(it => [it.item, it.description, it.amount])
+    ) : null
+
+    // ── Reserve table ────────────────────────────────────────
+    const resCols = [3012, 3012, 3002]
+    const reserveTable = multiTable(
+      ["Category", "Amount (€)", "Notes"],
+      resCols,
+      [
+        ["Buildings",      d.reserve_buildings      || "—", ""],
+        ["Trade Contents", d.reserve_trade_contents || "—", ""],
+        ["Stock",          d.reserve_stock          || "—", ""],
+        ["Machinery",      d.reserve_machinery      || "—", ""],
+        ["BI",             d.reserve_bi             || "—", ""],
+        ["Other",          d.reserve_other          || "—", ""],
+      ]
+    )
+
+    // ── Build children array ──────────────────────────────────
+    const children = [
+      titlePara,
+      subtitlePara,
+      dividerLine,
+      coverTable,
+      gap(320),
+
+      // 1. CLAIM & BASIC INFO
+      sectionHdr("1.  Claim & Basic Info"),
+      gap(60),
+      dataTable([
+        ["File Number",      d.file_number],
+        ["Date",             d.date],
+        ["Date of Incident", d.date_of_incident],
+        ["Inspection Date",  d.inspection_date],
+        ["Policy Number",    d.policy_number],
+        ["Claim Number",     d.claim_number],
+        ["Type of Case",     d.type_of_case],
+        ["Type of Loss",     d.type_of_loss],
+      ]),
+      gap(60),
+      dataTable([
+        ["Claimant Name",    d.claimant_name],
+        ["Phone",            d.claimant_phone],
+        ["Email",            d.claimant_email],
+        ["Insurer",          d.insurer_name],
+        ["Other Rep",        d.other_rep],
+        ["Other Rep Email",  d.other_rep_email],
+        ["Other Rep Phone",  d.other_rep_phone],
+      ]),
+      gap(60),
+      dataTable([
+        ["Details of Loss",  d.details_of_loss],
+        ["Other Info",       d.other_info],
+      ]),
+      gap(240),
+
+      // 2. SITE VISIT
+      sectionHdr("2.  Site Visit Info"),
+      gap(60),
+      dataTable([
+        ["Field Adjuster",    d.field_adjuster],
+        ["Internal Adjuster", d.internal_adjuster],
+        ["Visit Date",        d.visit_date],
+        ["Visit Time",        d.visit_time],
+        ["Persons Present",   d.persons_present],
+        ["Contact Numbers",   d.contact_numbers],
+        ["GDPR Obtained",     d.gdpr_obtained],
+        ["GDPR Reason",       d.gdpr_reason],
+        ["Notes",             d.site_notes],
+      ]),
+      gap(240),
+
+      // 3. THE INSURED
+      sectionHdr("3.  The Insured"),
+      gap(60),
+      dataTable([
+        ["Policyholder / DOB",   d.policyholder_name_dob],
+        ["Occupation",           d.occupation],
+        ["Address",              d.insured_address],
+        ["Period of Residence",  d.period_of_residence],
+        ["Previous Addresses",   d.previous_addresses],
+        ["Period on Cover",      d.period_on_cover],
+        ["Previous Insurers",    d.previous_insurers],
+        ["Previous Claim 1",     d.previous_claim_1],
+        ["Previous Claim 2",     d.previous_claim_2],
+        ["Previous Claim 3",     d.previous_claim_3],
+        ["Convictions",          d.convictions],
+        ["Other Occupiers",      d.other_occupiers],
+        ["Notes",                d.insured_notes],
+      ]),
+      gap(240),
+
+      // 4. PREMISES
+      sectionHdr("4.  The Premises"),
+      gap(60),
+      dataTable([
+        ["Property Type",         d.property_type],
+        ["Storeys",               d.storeys],
+        ["Bedrooms",              d.bedrooms],
+        ["Roof",                  d.roof],
+        ["Basement / Attic",      d.basement_attic],
+        ["Date of Construction",  d.date_of_construction],
+        ["Listing Status",        d.listing_status],
+        ["Maintenance Standard",  d.maintenance_standard],
+        ["Ownership Status",      d.ownership_status],
+      ]),
+      gap(240),
+
+      // 5. PROTECTIONS
+      sectionHdr("5.  Protections"),
+      gap(60),
+      subHdr("Door Locks"),
+      gap(40),
+      multiTable(
+        ["Door",             "Lock Make",                 "Lock Type"],
+        [3008, 3009, 3009],
+        [
+          ["Front Door",         d.front_door_lock_make,      d.front_door_lock_type],
+          ["Rear Door",          d.rear_door_lock_make,       d.rear_door_lock_type],
+          ["Side Door",          d.side_door_lock_make,       d.side_door_lock_type],
+        ]
+      ),
+      gap(80),
+      subHdr("General"),
+      gap(40),
+      dataTable([
+        ["Alarm Details",      d.alarm_details],
+        ["Recommendations",    d.recommendations],
+        ["Risk Issues",        d.risk_issues],
+        ["Warranties Complied",d.warranties_complied],
+        ["Warranties Notes",   d.warranties_notes],
+        ["Notes",              d.prot_notes],
+      ]),
+      gap(240),
+
+      // 6. DISCOVERY
+      sectionHdr("6.  Discovery & Perils"),
+      gap(60),
+      dataTable([
+        ["Discovered",         d.discovered_datetime],
+        ["Discovered By",      d.discovered_by],
+        ["Last Occupied",      d.last_occupied],
+        ["Operating Peril",    d.operating_peril],
+        ["Circumstances",      d.circumstances],
+        ["Causation Issues",   d.causation_issues],
+        ["Evidence",           d.evidence],
+        ["Notes",              d.disc_notes],
+      ]),
+      gap(240),
+
+      // 7. THEFT
+      sectionHdr("7.  Theft / Malicious Damage"),
+      gap(60),
+      dataTable([
+        ["Occupants Prior",      d.occupants_prior],
+        ["Last to Leave",        d.last_to_leave],
+        ["Fully Secured",        d.fully_secured],
+        ["Method of Entry",      d.method_of_entry],
+        ["Method of Exit",       d.method_of_exit],
+        ["Force Evidence",       d.force_evidence],
+        ["CRN",                  d.crn],
+        ["Police Station",       d.police_station],
+        ["Police Report Req.",   d.police_report_required],
+        ["Notes",                d.theft_notes],
+      ]),
+      gap(240),
+
+      // 8. BUILDINGS
+      sectionHdr("8.  Buildings (FNQ)"),
+      gap(60),
+      ...(areasTable ? [subHdr("Damaged Areas"), gap(40), areasTable, gap(80)] : []),
+      dataTable([
+        ["Damage Consistent",  d.damage_consistent],
+        ["Betterment",         d.betterment],
+        ["Maintenance",        d.maintenance],
+        ["Actions / Quantum",  d.actions_quantum],
+        ["Notes",              d.bldg_notes],
+      ]),
+      gap(240),
+
+      // 9. CONTENTS
+      sectionHdr("9.  Contents"),
+      gap(60),
+      ...(contTable ? [subHdr("Items"), gap(40), contTable, gap(80)] : []),
+      dataTable([
+        ["Total Amount",       d.total_amount ? `€${d.total_amount}` : ""],
+        ["Proof of Ownership", d.proof_of_ownership],
+        ["Specialist Reports", d.specialist_reports],
+        ["Notes",              d.cont_notes],
+      ]),
+      gap(240),
+
+      // 10. ACCOMMODATION
+      sectionHdr("10.  Alternative Accommodation"),
+      gap(60),
+      dataTable([
+        ["Uninhabitable",           d.uninhabitable],
+        ["Details",                 d.uninhabitable_details],
+        ["Who Lives There",         d.who_lives_there],
+        ["Alternatives Discussed",  d.alternatives_discussed],
+        ["Disruption Period",       d.disruption_period],
+        ["Cessation of Rent",       d.cessation_of_rent],
+        ["Further Actions",         d.further_actions],
+        ["Notes",                   d.accom_notes],
+      ]),
+      gap(240),
+
+      // 11. SUM INSURED
+      sectionHdr("11.  Sum Insured"),
+      gap(60),
+      subHdr("Buildings"),
+      gap(40),
+      dataTable([
+        ["Buildings Sum",      d.buildings_sum  ? `€${d.buildings_sum}`  : ""],
+        ["Buildings Variance", d.buildings_var  ? `€${d.buildings_var}`  : ""],
+        ["Additional Variance",d.additional_var ? `€${d.additional_var}` : ""],
+        ["Buildings Adequacy", d.buildings_adequacy],
+        ["Notes",              d.buildings_notes],
+      ]),
+      gap(80),
+      subHdr("Contents"),
+      gap(40),
+      dataTable([
+        ["Contents Sum",       d.contents_sum ? `€${d.contents_sum}` : ""],
+        ["Basis of Valuation", d.basis_of_valuation],
+        ["Contents Adequacy",  d.contents_adequacy],
+        ["Notes",              d.contents_notes],
+      ]),
+      gap(240),
+
+      // 12. RECOVERY
+      sectionHdr("12.  Recovery & End of Visit"),
+      gap(60),
+      dataTable([
+        ["Responsible Party",  d.responsible_party],
+        ["Claim Status",       d.claim_status],
+        ["Claim Summary",      d.claim_summary],
+        ["Enquiries Required", d.enquiries_required],
+        ["Other Concerns",     d.other_concerns],
+      ]),
+      gap(80),
+      subHdr("Reserve"),
+      gap(40),
+      reserveTable,
+      gap(80),
+      subHdr("Action Plan"),
+      gap(40),
+      dataTable([
+        ["Issues",              d.action_issues],
+        ["Adjuster Actions",    d.action_adjuster],
+        ["Policyholder Actions",d.action_policyholder],
+        ["Notes",               d.action_notes],
+      ]),
+      gap(240),
+    ]
+
+    const doc = new Document({
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: 1440, right: 1260, bottom: 1440, left: 1260 }
+          }
+        },
+        headers: {
+          default: new Header({ children: [
+            new Paragraph({
+              border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: MGRAY, space: 1 } },
+              children: [
+                new TextRun({ text: "ONYR Insurance", bold: true, size: 18, font: "Arial", color: DARK }),
+                new TextRun({ text: `  |  Inspection Report #${id}`, size: 18, font: "Arial", color: MUTED }),
+              ]
+            })
+          ]})
+        },
+        footers: {
+          default: new Footer({ children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              border: { top: { style: BorderStyle.SINGLE, size: 4, color: MGRAY, space: 1 } },
+              children: [
+                new TextRun({ text: "Page ", size: 16, font: "Arial", color: MUTED }),
+                new TextRun({ children: [PageNumber.CURRENT], size: 16, font: "Arial", color: MUTED }),
+                new TextRun({ text: " of ", size: 16, font: "Arial", color: MUTED }),
+                new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, font: "Arial", color: MUTED }),
+              ]
+            })
+          ]})
+        },
+        children
+      }]
+    })
+    const buffer = await Packer.toBuffer(doc)
+    res.setHeader("Content-Disposition", `attachment; filename=inspection_${id}.docx`)
+    res.send(buffer)
+  } catch (err) {
+    console.error("INSPECTION DOC ERROR:", err)
+    res.status(500).send(err.message)
   }
 })
 

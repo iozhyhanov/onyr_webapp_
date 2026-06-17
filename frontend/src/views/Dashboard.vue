@@ -114,7 +114,10 @@
                   Edit
                 </div>
                 <div @click="downloadDoc(c.claim_id)" class="dropdown-item">
-                  Download Word
+                  Download Claim
+                </div>
+                <div v-if="c.inspection_id" @click="downloadInspectionDoc(c.inspection_id)" class="dropdown-item">
+                  Download Inspection
                 </div>
               </div>
             </td>
@@ -301,6 +304,10 @@ const saveClaim = async () => {
 
 const downloadDoc = async (id) => {
   await downloadFile(`/api/claims/${id}/doc`, `claim_${id}.docx`)
+}
+
+const downloadInspectionDoc = async (inspectionId) => {
+  await downloadFile(`/api/inspections/${inspectionId}/doc`, `inspection_${inspectionId}.docx`)
 }
 </script>
 
