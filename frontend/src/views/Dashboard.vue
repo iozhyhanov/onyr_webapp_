@@ -397,12 +397,13 @@ const downloadInspectionDoc = async (inspectionId) => {
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .table-header {
   padding: 18px 24px 14px;
   border-bottom: 1px solid #f1f5f9;
+  border-radius: 8px 8px 0 0;
 }
 
 .table-title {
