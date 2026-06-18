@@ -119,8 +119,8 @@ async function createCustomer(connection, data) {
 async function createClaim(connection, customerId, data) {
   const sql = `
     INSERT INTO claims
-    (customer_id, insurer_name, policy_number, policy_type, date_of_loss)
-    VALUES (?, ?, ?, ?, ?)
+    (customer_id, insurer_name, policy_number, policy_type, date_of_loss, claim_status)
+    VALUES (?, ?, ?, ?, ?, 'New')
   `
   const values = [
     customerId, data.insurer_name, data.policy_number,
@@ -208,6 +208,16 @@ app.delete("/api/users/:id", authMiddleware, adminOnly, async (req, res) => {
   }
 })
 
+// ── CLAIM STATUSES ───────────────────────────────────────
+app.get("/api/claim-statuses", authMiddleware, async (req, res) => {
+  try {
+    const [rows] = await db.execute("SELECT * FROM claim_statuses ORDER BY sort_order")
+    res.json(rows)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // ── CLAIMS ───────────────────────────────────────────────
 
 app.post("/api/claims", authMiddleware, validate({
@@ -256,6 +266,20 @@ app.get("/api/claims", authMiddleware, async (req, res) => {
     res.json(rows)
   } catch (err) {
     console.error("DB ERROR:", err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.patch("/api/claims/:id/status", authMiddleware, adminOnly, async (req, res) => {
+  const { status } = req.body
+  const allowed = ["Under Review", "Inspection Scheduled", "Closed"]
+  if (!status) return res.status(400).json({ error: "status is required" })
+  if (!allowed.includes(status)) return res.status(400).json({ error: `Status must be one of: ${allowed.join(", ")}` })
+  try {
+    await db.execute("UPDATE claims SET claim_status = ? WHERE claim_id = ?", [status, req.params.id])
+    res.json({ ok: true })
+  } catch (err) {
+    console.error("STATUS UPDATE ERROR:", err)
     res.status(500).json({ error: err.message })
   }
 })
@@ -317,6 +341,55 @@ app.put("/api/claims/:id", authMiddleware, async (req, res) => {
   } catch (err) {
     await connection.rollback()
     console.error("UPDATE ERROR:", err)
+    res.status(500).json({ error: err.message })
+  } finally {
+    connection.release()
+  }
+})
+
+app.delete("/api/claims/:id", authMiddleware, adminOnly, async (req, res) => {
+  const claimId = req.params.id
+  const connection = await db.getConnection()
+  try {
+    await connection.beginTransaction()
+
+    // Get customer_id and inspection_ids linked to this claim
+    const [claimRows] = await connection.execute(
+      "SELECT customer_id FROM claims WHERE claim_id = ?", [claimId]
+    )
+    if (claimRows.length === 0) return res.status(404).json({ error: "Claim not found" })
+    const customerId = claimRows[0].customer_id
+
+    const [inspRows] = await connection.execute(
+      "SELECT inspection_id FROM inspections WHERE claim_id = ?", [claimId]
+    )
+    const inspectionIds = inspRows.map(r => r.inspection_id)
+
+    // Delete inspection sub-tables
+    for (const inspId of inspectionIds) {
+      await connection.execute("DELETE FROM inspection_damaged_areas WHERE inspection_id = ?", [inspId])
+      await connection.execute("DELETE FROM inspection_contents WHERE inspection_id = ?", [inspId])
+      await connection.execute("DELETE FROM inspection_reserve WHERE inspection_id = ?", [inspId])
+      await connection.execute("DELETE FROM inspection_buildings WHERE inspection_id = ?", [inspId])
+    }
+
+    // Delete inspections
+    await connection.execute("DELETE FROM inspections WHERE claim_id = ?", [claimId])
+
+    // Delete FNOL
+    await connection.execute("DELETE FROM fnol WHERE claim_id = ?", [claimId])
+
+    // Delete the claim
+    await connection.execute("DELETE FROM claims WHERE claim_id = ?", [claimId])
+
+    // Delete the customer
+    await connection.execute("DELETE FROM customers WHERE customer_id = ?", [customerId])
+
+    await connection.commit()
+    res.json({ ok: true })
+  } catch (err) {
+    await connection.rollback()
+    console.error("DELETE CLAIM ERROR:", err)
     res.status(500).json({ error: err.message })
   } finally {
     connection.release()
@@ -521,6 +594,10 @@ app.post("/api/fnol", authMiddleware, validate({
       safe(data.loss_type), safe(data.short_description), safe(data.detailed_description),
       safe(data.third_party_involved), safe(data.police_report_number)
     ])
+    await db.execute(
+      "UPDATE claims SET claim_status = 'FNOL Submitted' WHERE claim_id = ?",
+      [data.claim_id]
+    )
     res.json({ message: "FNOL created", id: result.insertId })
   } catch (err) {
     console.error("FNOL ERROR:", err)
@@ -744,6 +821,10 @@ app.post("/api/inspections", authMiddleware, validate({
       s(ap.issues), s(ap.adjuster_actions), s(ap.policyholder_actions), s(ap.adjuster_notes)
     ])
 
+    await conn.execute(
+      "UPDATE claims SET claim_status = 'Report Ready' WHERE claim_id = ?",
+      [b.claim_id]
+    )
     await conn.commit()
     res.json({ ok: true, inspection_id: id })
   } catch (err) {

@@ -7,7 +7,9 @@
         <h1 class="page-title">Claims Dashboard</h1>
         <p class="page-subtitle">Overview of all insurance claim activity</p>
       </div>
-      <input v-model="search" placeholder="Quick search..." class="search-input" />
+      <div class="header-actions">
+        <input v-model="search" placeholder="Quick search..." class="search-input" />
+      </div>
     </div>
 
     <!-- STAT CARDS -->
@@ -57,6 +59,14 @@
           <h2 class="table-title">Recent Claims</h2>
           <p class="table-subtitle">Manage and review submitted insurance claims.</p>
         </div>
+        <div class="table-header-actions">
+          <button class="btn-action btn-status" @click="showStatusModal = true" title="Change claim status">
+            <ArrowLeftRight class="w-4 h-4" /> Change Status
+          </button>
+          <button class="btn-action btn-delete" @click="showDeleteModal = true" title="Delete claim">
+            <Trash2 class="w-4 h-4" /> Delete Claim
+          </button>
+        </div>
       </div>
 
       <table class="claims-table">
@@ -88,7 +98,7 @@
             <td>{{ c.insurer_name }}</td>
             <td class="text-muted">{{ formatDate(c.date_of_loss) }}</td>
             <td>
-              <span class="status-badge" :class="'status-' + c.claim_status">
+              <span class="status-badge" :class="'status-' + c.claim_status.toLowerCase().replace(/\s+/g, '-')">
                 {{ c.claim_status }}
               </span>
             </td>
@@ -169,9 +179,7 @@
           <div><label class="modal-label">Date of Loss</label><input ref="dateLossEditRef" class="modal-input" placeholder="Date of Loss" /></div>
           <div><label class="modal-label">Status</label>
             <select v-model="editClaim.claim_status" class="modal-input">
-              <option>open</option>
-              <option>investigation</option>
-              <option>closed</option>
+              <option v-for="s in claimStatuses" :key="s.value" :value="s.value">{{ s.label }}</option>
             </select>
           </div>
         </div>
@@ -182,13 +190,97 @@
       </div>
     </div>
 
+    <!-- CHANGE STATUS MODAL -->
+    <div v-if="showStatusModal" @click.self="closeStatusModal" class="modal-overlay">
+      <div class="modal">
+        <h2 class="modal-title">Change Claim Status</h2>
+
+        <div class="modal-grid">
+          <div class="col-span-2">
+            <label class="modal-label">Select Claim</label>
+            <select v-model="statusForm.claimId" class="modal-input">
+              <option disabled value="">— Select claim —</option>
+              <option v-for="c in claims" :key="c.claim_id" :value="c.claim_id">
+                #{{ c.claim_id }} — {{ c.first_name }} {{ c.last_name }}
+              </option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="modal-label">New Status</label>
+            <select v-model="statusForm.status" class="modal-input">
+              <option disabled value="">— Select status —</option>
+              <option value="Under Review">Under Review</option>
+              <option value="Inspection Scheduled">Inspection Scheduled</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="modal-label">Reason for Change</label>
+            <textarea v-model="statusForm.reason" class="modal-input" rows="3" placeholder="Explain why the status is being changed..." />
+          </div>
+        </div>
+
+        <div v-if="statusError" class="modal-error">{{ statusError }}</div>
+
+        <div class="modal-footer">
+          <button @click="closeStatusModal" class="btn-close">Cancel</button>
+          <button
+            @click="submitStatusChange"
+            class="btn-save"
+            :disabled="!statusForm.claimId || !statusForm.status || !statusForm.reason || statusLoading"
+          >{{ statusLoading ? 'Saving...' : 'Change Status' }}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DELETE CLAIM MODAL -->
+    <div v-if="showDeleteModal" @click.self="closeDeleteModal" class="modal-overlay">
+      <div class="modal">
+        <h2 class="modal-title" style="color:#ef4444">Delete Claim</h2>
+        <p class="modal-desc">This action is permanent and cannot be undone. All related FNOL and inspection data will also be removed.</p>
+
+        <div class="modal-grid">
+          <div class="col-span-2">
+            <label class="modal-label">Select Claim to Delete</label>
+            <select v-model="deleteForm.claimId" class="modal-input">
+              <option disabled value="">— Select claim —</option>
+              <option v-for="c in claims" :key="c.claim_id" :value="c.claim_id">
+                #{{ c.claim_id }} — {{ c.first_name }} {{ c.last_name }}
+              </option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="modal-label">Reason for Deletion</label>
+            <textarea v-model="deleteForm.reason" class="modal-input" rows="3" placeholder="Explain why this claim is being deleted..." />
+          </div>
+          <div class="col-span-2">
+            <label class="confirm-check">
+              <input type="checkbox" v-model="deleteForm.confirmed" />
+              <span>I confirm I want to permanently delete this claim and all its data</span>
+            </label>
+          </div>
+        </div>
+
+        <div v-if="deleteError" class="modal-error">{{ deleteError }}</div>
+
+        <div class="modal-footer">
+          <button @click="closeDeleteModal" class="btn-close">Cancel</button>
+          <button
+            @click="submitDelete"
+            class="btn-delete-confirm"
+            :disabled="!deleteForm.claimId || !deleteForm.reason || !deleteForm.confirmed || deleteLoading"
+          >{{ deleteLoading ? 'Deleting...' : 'Delete Claim' }}</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { api, downloadFile } from "../utils/api"
 import { ref, onMounted, computed } from "vue"
-import { MoreVertical, Info, FileText, Clock, Search, CheckCircle } from "lucide-vue-next"
+import { MoreVertical, Info, FileText, Clock, Search, CheckCircle, Trash2, ArrowLeftRight } from "lucide-vue-next"
 import { nextTick } from "vue"
 import flatpickr from "flatpickr"
 
@@ -216,7 +308,10 @@ interface Claim {
 const dateBirthEditRef = ref<HTMLElement | null>(null)
 const dateLossEditRef = ref<HTMLElement | null>(null)
 
+interface ClaimStatus { id: number; value: string; label: string; color: string; sort_order: number }
+
 const claims = ref<Claim[]>([])
+const claimStatuses = ref<ClaimStatus[]>([])
 const total = ref(0)
 const open = ref(0)
 const investigation = ref(0)
@@ -227,6 +322,61 @@ const activeMenu = ref<number | null>(null)
 const selectedClaim = ref<Claim | null>(null)
 const isEditMode = ref(false)
 const editClaim = ref<Claim | null>(null)
+
+// ── Change Status Modal ──
+const showStatusModal = ref(false)
+const statusLoading = ref(false)
+const statusError = ref("")
+const statusForm = ref({ claimId: "", status: "", reason: "" })
+
+const closeStatusModal = () => {
+  showStatusModal.value = false
+  statusForm.value = { claimId: "", status: "", reason: "" }
+  statusError.value = ""
+}
+
+const submitStatusChange = async () => {
+  statusError.value = ""
+  statusLoading.value = true
+  try {
+    await api.patch(`/api/claims/${statusForm.value.claimId}/status`, { status: statusForm.value.status })
+    const idx = claims.value.findIndex(c => c.claim_id === statusForm.value.claimId)
+    if (idx !== -1) claims.value[idx] = { ...claims.value[idx], claim_status: statusForm.value.status }
+    recalcStats()
+    closeStatusModal()
+  } catch (err: any) {
+    statusError.value = err.message || "Failed to change status"
+  } finally {
+    statusLoading.value = false
+  }
+}
+
+// ── Delete Modal ──
+const showDeleteModal = ref(false)
+const deleteLoading = ref(false)
+const deleteError = ref("")
+const deleteForm = ref({ claimId: "", reason: "", confirmed: false })
+
+const closeDeleteModal = () => {
+  showDeleteModal.value = false
+  deleteForm.value = { claimId: "", reason: "", confirmed: false }
+  deleteError.value = ""
+}
+
+const submitDelete = async () => {
+  deleteError.value = ""
+  deleteLoading.value = true
+  try {
+    await api.delete(`/api/claims/${deleteForm.value.claimId}`)
+    claims.value = claims.value.filter(c => c.claim_id !== deleteForm.value.claimId)
+    recalcStats()
+    closeDeleteModal()
+  } catch (err: any) {
+    deleteError.value = err.message || "Failed to delete claim"
+  } finally {
+    deleteLoading.value = false
+  }
+}
 
 const formatDate = (date: string | null | undefined): string => {
   if (!date) return ""
@@ -265,9 +415,9 @@ const openEdit = async (claim) => {
 
 const recalcStats = () => {
   total.value = claims.value.length
-  open.value = claims.value.filter(c => c.claim_status === "open").length
-  investigation.value = claims.value.filter(c => c.claim_status === "investigation").length
-  closed.value = claims.value.filter(c => c.claim_status === "closed").length
+  open.value = claims.value.filter(c => ["New", "FNOL Submitted", "Inspection Scheduled"].includes(c.claim_status)).length
+  investigation.value = claims.value.filter(c => ["Under Review", "Report Ready"].includes(c.claim_status)).length
+  closed.value = claims.value.filter(c => c.claim_status === "Closed").length
 }
 
 const filteredClaims = computed(() => {
@@ -281,8 +431,12 @@ const filteredClaims = computed(() => {
 onMounted(async () => {
   document.addEventListener("click", () => { activeMenu.value = null })
   try {
-    const data = await api.get("/api/claims")
+    const [data, statuses] = await Promise.all([
+      api.get("/api/claims"),
+      api.get("/api/claim-statuses")
+    ])
     claims.value = data
+    claimStatuses.value = statuses
     recalcStats()
   } catch {
     // 401 → api.ts автоматически редиректит на /login
@@ -339,6 +493,39 @@ const downloadInspectionDoc = async (inspectionId) => {
   color: #64748b;
   margin: 0;
 }
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.btn-status {
+  background: #eff6ff;
+  color: #2563eb;
+}
+.btn-status:hover { background: #dbeafe; }
+
+.btn-delete {
+  background: #fef2f2;
+  color: #ef4444;
+}
+.btn-delete:hover { background: #fee2e2; }
 
 .search-input {
   padding: 8px 14px;
@@ -404,6 +591,14 @@ const downloadInspectionDoc = async (inspectionId) => {
   padding: 18px 24px 14px;
   border-bottom: 1px solid #f1f5f9;
   border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.table-header-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .table-title {
@@ -486,7 +681,12 @@ const downloadInspectionDoc = async (inspectionId) => {
 }
 
 .status-open { color: #2563eb; background: #eff6ff; border-color: #bfdbfe; }
+.status-new { color: #2563eb; background: #eff6ff; border-color: #bfdbfe; }
+.status-fnol-submitted { color: #7c3aed; background: #f5f3ff; border-color: #ddd6fe; }
+.status-inspection-scheduled { color: #0891b2; background: #ecfeff; border-color: #a5f3fc; }
+.status-report-ready { color: #059669; background: #ecfdf5; border-color: #a7f3d0; }
 .status-investigation { color: #d97706; background: #fffbeb; border-color: #fde68a; }
+.status-under-review  { color: #d97706; background: #fffbeb; border-color: #fde68a; }
 .status-closed { color: #16a34a; background: #f0fdf4; border-color: #bbf7d0; }
 
 .fnol-badge {
@@ -632,4 +832,56 @@ const downloadInspectionDoc = async (inspectionId) => {
 }
 
 .btn-save:hover { background: #1d4ed8; }
+
+.modal-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin: -10px 0 16px;
+  line-height: 1.5;
+}
+
+.modal-error {
+  background: #fef2f2;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.confirm-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: #0f172a;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.confirm-check input[type="checkbox"] {
+  margin-top: 2px;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: #ef4444;
+}
+
+.btn-delete-confirm {
+  padding: 8px 18px;
+  border-radius: 6px;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-delete-confirm:hover:not(:disabled) { background: #dc2626; }
+.btn-delete-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>
