@@ -340,7 +340,7 @@ const submitStatusChange = async () => {
   statusLoading.value = true
   try {
     await api.patch(`/api/claims/${statusForm.value.claimId}/status`, { status: statusForm.value.status })
-    const idx = claims.value.findIndex(c => c.claim_id === statusForm.value.claimId)
+    const idx = claims.value.findIndex(c => c.claim_id === Number(statusForm.value.claimId))
     if (idx !== -1) claims.value[idx] = { ...claims.value[idx], claim_status: statusForm.value.status }
     recalcStats()
     closeStatusModal()
@@ -368,7 +368,7 @@ const submitDelete = async () => {
   deleteLoading.value = true
   try {
     await api.delete(`/api/claims/${deleteForm.value.claimId}`)
-    claims.value = claims.value.filter(c => c.claim_id !== deleteForm.value.claimId)
+    claims.value = claims.value.filter(c => c.claim_id !== Number(deleteForm.value.claimId))
     recalcStats()
     closeDeleteModal()
   } catch (err: any) {
